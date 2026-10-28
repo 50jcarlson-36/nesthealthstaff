@@ -7,7 +7,7 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 | Phase | State |
 |---|---|
 | 1. Intake: submit → inquiry saved → notifications queued | **Built and tested locally.** Not deployed. The frontend isn't connected yet. |
-| 2. Staff: sign in → review → update pipeline | **Started.** The `ward.` portal (`apps/ward`) does magic-link sign-in, an inquiry list with filters, and a read-only detail page with history. It was checked in a browser against the local stack only. Stage changes, notes, assignment and concurrency control are next. |
+| 2. Staff: sign in → review → update pipeline | **Built and tested locally.** Database functions `change_inquiry_stage`, `assign_inquiry`, `add_inquiry_note` and `organization_staff` handle stage changes (a reason is required to close), recruiter assignment (same-agency staff only) and append-only notes. Stage and assignment changes use optimistic concurrency via `version`. `ward.` exposes all of it, and was checked in a browser against the local stack only. Not deployed. |
 | 3. Recruiting: jobs, applications | Not started |
 | 4. Onboarding: profiles, private documents | Not started |
 | 5. Placement: assignments, housing | Not started |
@@ -65,6 +65,7 @@ Most sources below are vendor pages and trade press, not program documentation. 
 | 4 | Recruiters cannot access another organization's records | Test written |
 | 5 | Facility users cannot access unrelated facilities | Phase 3 (facility memberships aren't built yet) |
 | 6 | Users cannot promote themselves or change protected fields | Test written |
+| 2b | Pipeline changes are validated, scoped to the agency and safe under concurrency | Test written (`tests/integration/pipeline.test.ts`) |
 | 7 | Duplicate applications are handled safely | Phase 3. Duplicate *inquiries* are tested. |
 | 8 | Closed jobs reject applications | Phase 3 |
 | 9 | Document access controls | Phase 4 |
@@ -83,9 +84,10 @@ The "Test results" section below records whether each test has actually run and 
 
 Run on 2026-10-28 against the **local** stack: Supabase CLI 2.122.0, Postgres 17, synthetic data only.
 
-- **`npm test`: 51 passed, 0 failed.**
+- **`npm test`: 64 passed, 0 failed** (rerun on 2026-10-28 after the phase 2 migration). The first run straight after `supabase db reset` had 2 failures while the containers were still restarting under heavy load; the failing test names weren't captured. The immediate rerun passed in full.
   - 21 unit tests: validation of the live form payload, templates (no contact details, HTML escaping), the Resend adapter (`Idempotency-Key` header, which errors are retried), and the outbox loop.
   - 23 integration tests: items 1, 2, 4 and 6, run as real `anon` and signed-in users.
+  - 13 integration tests for the phase 2 pipeline: stage changes with version conflicts (including two simultaneous saves where exactly one wins), closing reasons, assignment limited to same-agency staff, append-only notes, other agencies seeing "not found", anonymous users refused, and direct table writes still blocked.
   - 7 integration tests: item 10, covering concurrent claims, backoff, lease expiry, max attempts, and exactly-once sends across worker runs.
 - **`scripts/smoke-functions.sh`** ran the Edge Functions over HTTP: 12 of 13 checks passed on the first run.
   - Passed: CORS preflight, `201` on submit, `200` for a retry with the same key, `403` for a foreign origin, `400` with the form's error message, `405`, `401` without the outbox secret, and the outbox sending 2 queued notifications through the dev adapter.

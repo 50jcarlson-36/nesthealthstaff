@@ -15,7 +15,7 @@ Supabase backend for Nest Health Staff, a travel-nursing staffing service that c
 - `supabase/functions/intake`: public intake endpoint. It takes the live website's `/api/leads` payload.
 - `supabase/functions/process-outbox`: notification worker with retries.
 - `supabase/functions/_shared`: validation, templates, email adapters and the outbox loop. These are pure TypeScript, unit-tested in Node.
-- `apps/ward/`: the ward back office, a React single-page app for Cloudflare Workers static assets. It signs staff in by magic link and reads inquiries through RLS.
+- `apps/ward/`: the ward back office, a React single-page app for Cloudflare Workers static assets. It signs staff in by magic link, lists inquiries, and moves them through the pipeline (stage, assignment, notes) through validated database functions.
 - `tests/`: unit tests, plus integration tests that run as real `anon` and `authenticated` roles against a local stack.
 - `docs/API.md`: endpoint contract and the frontend integration notes.
 - `docs/DEPLOYMENT.md`: local setup, production deployment, email, DNS, backups and recovery.

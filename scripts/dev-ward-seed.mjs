@@ -1,5 +1,5 @@
-// Seeds the LOCAL stack for trying the ward portal: a recruiter account on the
-// synthetic dev organization and a few synthetic inquiries. Refuses to run
+// Seeds the LOCAL stack for trying the ward portal: a recruiter and an admin on
+// the synthetic dev organization and a few synthetic inquiries. Refuses to run
 // against anything but a loopback Supabase URL.
 //
 //   node scripts/dev-ward-seed.mjs
@@ -22,18 +22,24 @@ const service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, { auth: { 
 const { data: org, error: orgError } = await service.from("organizations").select("id").eq("slug", ORG_SLUG).single();
 if (orgError) throw orgError;
 
-// Recruiter account. No password: sign-in is by magic link only.
+// Staff accounts. No passwords: sign-in is by magic link only.
+const STAFF = [
+  { email: RECRUITER_EMAIL, full_name: "Dev Recruiter", role: "recruiter" },
+  { email: "admin@example.com", full_name: "Dev Admin", role: "admin" },
+];
 const { data: list } = await service.auth.admin.listUsers();
-let user = list.users.find((u) => u.email === RECRUITER_EMAIL);
-if (!user) {
-  const { data, error } = await service.auth.admin.createUser({ email: RECRUITER_EMAIL, email_confirm: true, user_metadata: { full_name: "Dev Recruiter" } });
+for (const member of STAFF) {
+  let user = list.users.find((u) => u.email === member.email);
+  if (!user) {
+    const { data, error } = await service.auth.admin.createUser({ email: member.email, email_confirm: true, user_metadata: { full_name: member.full_name } });
+    if (error) throw error;
+    user = data.user;
+  }
+  const { error } = await service
+    .from("organization_memberships")
+    .upsert({ organization_id: org.id, user_id: user.id, role: member.role }, { onConflict: "organization_id,user_id", ignoreDuplicates: true });
   if (error) throw error;
-  user = data.user;
 }
-const { error: memberError } = await service
-  .from("organization_memberships")
-  .upsert({ organization_id: org.id, user_id: user.id, role: "recruiter" }, { onConflict: "organization_id,user_id", ignoreDuplicates: true });
-if (memberError) throw memberError;
 
 const base = {
   phone: null, specialty: null, preferred_location: null, timeline: null, housing_assistance_requested: false,
@@ -58,4 +64,4 @@ for (const inquiry of inquiries) {
   if (data.status === "created") created++;
 }
 
-console.log(`Recruiter ${RECRUITER_EMAIL} is a member of ${ORG_SLUG}; ${created} new synthetic inquiries.`);
+console.log(`${STAFF.map((m) => m.email).join(" and ")} are staff of ${ORG_SLUG}; ${created} new synthetic inquiries.`);

@@ -79,3 +79,25 @@ The portals read with the Supabase client, using the publishable/anon key and th
 | `inquiries`, `inquiry_events` | Admins and recruiters of the owning organization | none yet: pipeline changes come in phase 2 |
 | `notification_outbox`, `audit_events` | Admins of the owning organization | none |
 | `intake_rate_limits` | nobody | none |
+
+## Staff pipeline functions (phase 2)
+
+Called by signed-in staff through PostgREST (`supabase.rpc(...)`) with their own session. Each checks that the caller is an admin or recruiter of the inquiry's agency. All are `SECURITY DEFINER` with an empty `search_path`, and `anon` cannot execute them.
+
+| Function | Arguments | Returns |
+|---|---|---|
+| `change_inquiry_stage` | `p_inquiry_id`, `p_expected_version`, `p_stage`, `p_closed_reason` (required for `closed`, rejected otherwise) | `{id, stage, closed_reason, version}` |
+| `assign_inquiry` | `p_inquiry_id`, `p_expected_version`, `p_assignee_id` (a staff member of the same agency, or `null` to unassign) | `{id, assigned_recruiter_id, version}` |
+| `add_inquiry_note` | `p_inquiry_id`, `p_body` (1–4,000 characters after trimming) | `{id, created_at}` |
+| `organization_staff` | `p_organization_id` | rows of `{user_id, full_name, role}` |
+
+Errors:
+
+| Code | HTTP | Meaning |
+|---|---|---|
+| `PT400` | 400 | Invalid input. The message is written to be shown to staff. |
+| `PT404` | 404 | The inquiry doesn't exist or belongs to another agency. Both cases look the same on purpose. |
+| `PT409` | 409 | `p_expected_version` is stale. Reload the inquiry and retry. |
+| `42501` | 401/403 | Not signed in. |
+
+Every change writes an `inquiry_events` row (`stage_changed`, `assigned` or `note_added`) with the actor. Notes go to `inquiry_notes`, which staff can read but never edit or delete.

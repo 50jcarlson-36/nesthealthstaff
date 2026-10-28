@@ -92,4 +92,17 @@ tr:last-child td { border-bottom: 0; }
 .fields dt { font-size: 0.8rem; color: var(--muted); }
 .fields dd { margin: 0; overflow-wrap: anywhere; }
 .history { padding-left: 1.2rem; }
-.note { margin-top: 2rem; font-size: 0.9rem; }
+
+.actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem 2rem; margin-top: 1rem; }
+.action { display: grid; gap: 0.4rem; align-content: start; }
+.action label, .action > p { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.action .error { color: var(--error); }
+.row { display: flex; gap: 0.5rem; }
+.row select { flex: 1; }
+.note-form { display: grid; gap: 0.5rem; justify-items: start; margin-bottom: 1rem; }
+textarea { font: inherit; width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); resize: vertical; }
+.notes { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+.notes .card { padding: 0.75rem 1rem; }
+.notes p { margin: 0; }
+.note-body { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 0.25rem !important; }
+.conflict { margin: 1rem 0 0; padding: 0.75rem 1rem; border-color: var(--error); color: var(--error); }

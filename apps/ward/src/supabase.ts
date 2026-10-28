@@ -25,10 +25,13 @@ export type InquirySummary = {
   specialty: string | null;
   organization_name: string | null;
   preferred_location: string | null;
+  assigned_recruiter_id: string | null;
   created_at: string;
 };
 
 export type Inquiry = InquirySummary & {
+  organization_id: string;
+  version: number;
   source: string;
   closed_reason: string | null;
   email: string;
@@ -51,8 +54,32 @@ export type InquiryEvent = {
   event_type: string;
   from_stage: InquiryStage | null;
   to_stage: InquiryStage | null;
+  actor_id: string | null;
+  details: Record<string, unknown>;
   created_at: string;
 };
+
+export type InquiryNote = {
+  id: string;
+  author_id: string | null;
+  body: string;
+  created_at: string;
+};
+
+export type StaffMember = {
+  user_id: string;
+  full_name: string | null;
+  role: "admin" | "recruiter";
+};
+
+// Pipeline functions raise PostgREST PTxxx codes (see the staff_pipeline
+// migration). PT400 messages are written to be shown as-is.
+export function pipelineError(error: { code?: string; message: string }): string {
+  if (error.code === "PT400") return error.message;
+  if (error.code === "PT409") return "Someone else changed this inquiry. The page now shows the latest version; check it and try again.";
+  if (error.code === "PT404") return "This inquiry no longer exists, or you've lost access to it.";
+  return "Couldn't save. Check your connection and try again.";
+}
 
 export type Membership = {
   organization_id: string;
