@@ -1,0 +1,20 @@
+{
+  "name": "nesthealthstaff-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:start": "supabase start -x realtime,studio,imgproxy,vector,logflare,supavisor",
+    "db:reset": "supabase db reset",
+    "functions:serve": "supabase functions serve --env-file supabase/functions/.env.local",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "2.118.0",
+    "@types/node": "24.19.2",
+    "supabase": "2.122.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}
