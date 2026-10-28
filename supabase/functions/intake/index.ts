@@ -5,6 +5,7 @@
 // {"error": "<message safe to show the visitor>"}.
 
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
+import { clientHash, corsHeaders, jsonReply, readJsonBody } from "../_shared/http.ts";
 import { normalizeIdempotencyKey, parseIntake } from "../_shared/intake.ts";
 import { allowedOriginsFromEnv, portalUrlsFromEnv } from "../_shared/portals.ts";
 
@@ -20,31 +21,8 @@ const supabase = createClient(
   { auth: { persistSession: false, autoRefreshToken: false } },
 );
 
-function corsHeaders(origin: string | null): Record<string, string> {
-  if (!origin || !allowedOrigins.has(origin)) return {};
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Idempotency-Key",
-    "Access-Control-Max-Age": "600",
-    Vary: "Origin",
-  };
-}
-
-function reply(status: number, body: unknown, origin: string | null, requestId: string): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "X-Request-Id": requestId, ...corsHeaders(origin) },
-  });
-}
-
-async function hmacHex(secret: string, value: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(signature), (b) => b.toString(16).padStart(2, "0")).join("");
-}
+const reply = (status: number, body: unknown, origin: string | null, requestId: string) =>
+  jsonReply(allowedOrigins, status, body, origin, requestId);
 
 // Log lines carry the request id and outcome only, never submitted values.
 function log(requestId: string, outcome: string, extra: Record<string, unknown> = {}) {
@@ -62,7 +40,7 @@ Deno.serve(async (request) => {
     return reply(403, { error: "This form can't be submitted from here." }, null, requestId);
   }
   if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    return new Response(null, { status: 204, headers: corsHeaders(allowedOrigins, origin) });
   }
   if (request.method !== "POST") {
     return reply(405, { error: "Method not allowed." }, origin, requestId);
@@ -71,22 +49,13 @@ Deno.serve(async (request) => {
     log(requestId, "misconfigured");
     return reply(503, { error: "We could not save your inquiry. Please try again later." }, origin, requestId);
   }
-  if (!(request.headers.get("Content-Type") ?? "").toLowerCase().startsWith("application/json")) {
-    return reply(415, { error: "Please submit the form again." }, origin, requestId);
+  const read = await readJsonBody(request, MAX_BODY_BYTES);
+  if (read.kind === "error") {
+    const message = { 400: "Please complete the form and try again.", 413: "Your submission is too long.", 415: "Please submit the form again." }[read.status];
+    return reply(read.status, { error: message }, origin, requestId);
   }
 
-  const raw = await request.text();
-  if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
-    return reply(413, { error: "Your submission is too long." }, origin, requestId);
-  }
-  let body: unknown;
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    return reply(400, { error: "Please complete the form and try again." }, origin, requestId);
-  }
-
-  const parsed = parseIntake(body);
+  const parsed = parseIntake(read.body);
   if (parsed.kind === "honeypot") {
     // Look successful so automated submitters learn nothing.
     log(requestId, "honeypot");
@@ -97,14 +66,11 @@ Deno.serve(async (request) => {
     return reply(400, { error: parsed.error }, origin, requestId);
   }
 
-  const clientIp = (request.headers.get("X-Forwarded-For") ?? "").split(",")[0].trim();
-  const clientHash = clientIp ? await hmacHex(ipHashSecret, clientIp) : null;
-
   const { data, error } = await supabase.rpc("submit_inquiry", {
     p_organization_slug: organizationSlug,
     p_inquiry: parsed.inquiry,
     p_idempotency_key: normalizeIdempotencyKey(request.headers.get("Idempotency-Key")),
-    p_client_hash: clientHash,
+    p_client_hash: await clientHash(request, ipHashSecret),
   });
 
   if (error) {

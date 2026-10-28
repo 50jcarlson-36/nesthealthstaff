@@ -427,6 +427,10 @@ enabled = true
 [functions.intake]
 verify_jwt = false
 
+# Public job applications; same rules as intake.
+[functions.apply]
+verify_jwt = false
+
 # Called by the scheduler with OUTBOX_PROCESSOR_SECRET; anon JWTs must not work.
 [functions.process-outbox]
 verify_jwt = false

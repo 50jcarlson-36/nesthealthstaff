@@ -8,7 +8,7 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 |---|---|
 | 1. Intake: submit → inquiry saved → notifications queued | **Built and tested locally.** Not deployed. The frontend isn't connected yet. |
 | 2. Staff: sign in → review → update pipeline | **Built and tested locally.** Database functions `change_inquiry_stage`, `assign_inquiry`, `add_inquiry_note` and `organization_staff` handle stage changes (a reason is required to close), recruiter assignment (same-agency staff only) and append-only notes. Stage and assignment changes use optimistic concurrency via `version`. `ward.` exposes all of it, and was checked in a browser against the local stack only. Not deployed. |
-| 3. Recruiting: jobs, applications | **Built and tested locally.** Recruiters enter jobs by hand in `ward.`. Each job is stored in two parts: public fields in `jobs`, and facility, requisition, rates and notes in `job_internal_details`, which only staff can read. The public listing reads only open jobs, through `list_public_jobs`, and only their public columns. Applications go in `job_applications`, from the website via the service-role function `submit_job_application`, or from a recruiter putting forward a clinician inquiry. Pay is internal only until the supplier agreements say otherwise. **Not built yet:** a public apply endpoint (Edge Function), the job board on the website, and application emails. Checked in a browser against the local stack only. Not deployed. |
+| 3. Recruiting: jobs, applications | **Built and tested locally.** Recruiters enter jobs by hand in `ward.`. Each job is stored in two parts: public fields in `jobs`, and facility, requisition, rates and notes in `job_internal_details`, which only staff can read. The public listing reads only open jobs, through `list_public_jobs`, and only their public columns. Applications go in `job_applications`, from the website via the service-role function `submit_job_application`, or from a recruiter putting forward a clinician inquiry. Pay is internal only until the supplier agreements say otherwise. The public `apply` Edge Function validates applications and calls `submit_job_application`. **Not built yet:** the job board and apply form on the website, and application emails. Checked in a browser against the local stack only. Not deployed. |
 | 4. Onboarding: profiles, private documents | Not started |
 | 5. Placement: assignments, housing | Not started |
 
@@ -29,7 +29,9 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 | SMS: Twilio | **Deferred** | n/a | The outbox `channel` column can take SMS later | n/a |
 | Billing: Stripe | **Deferred** | n/a | n/a | Business-model decision |
 | Housing: Extended Stay, Marriott, Hilton | **Unverified** | Not researched yet. No relationships exist. | Research official partner and affiliate routes (phase 5) | n/a |
-| License verification, background checks, e-signature, payroll | **Deferred** | n/a | n/a | Providers not chosen |
+| License verification: **Nursys e-Notify** (NCSBN) | **Available, not connected** | Researched 2026-10-28 from [NCSBN's institution page](https://www.ncsbn.org/456.htm) and vendor integration guides ([Credentially](https://intercom.help/credentially/en/articles/6015723-how-to-configure-nursys-e-verify-integration), [Modio](https://www.modiohealth.com/life/wp-content/uploads/NURSYS-TIP-GUIDE-July-2025.pdf)). It's free for U.S. institutions and sends licence status and public discipline updates for enrolled nurses. Vendor guides say the API credentials come from the institution's own e-Notify account (the first password is requested from Nursys support by phone), and that enrolling a nurse needs licence number and state, with some integrations also sending SSN and date of birth. Some state boards aren't covered. The official API specification wasn't publicly available to check. | Register the agency as an e-Notify institution and get the API specification from Nursys | No account. Phase 4 would need encrypted storage for any SSN or date of birth. |
+| "Digital Onboarding" (`docs.digitalonboarding.com`) | **Not applicable** | Checked 2026-10-28: it's a customer-engagement platform for banks and credit unions. Its API documents contacts, accounts, templates and journeys. It does **not** document `/v1/nurses`, `/v1/credentials/verify`, `/v1/journeys/assign` or `/v1/ehr/users`, which were described to us as its endpoints. | None | n/a |
+| Background checks, e-signature, payroll | **Deferred** | n/a | n/a | Providers not chosen |
 
 ## Job listing sources (researched 2026-10-28)
 
@@ -85,7 +87,8 @@ The "Test results" section below records whether each test has actually run and 
 
 Run on 2026-10-28 against the **local** stack: Supabase CLI 2.122.0, Postgres 17, synthetic data only.
 
-- **`npm test`: 82 passed, 0 failed** (2026-10-28, after the phase 3 migration).
+- **`npm test`: 96 passed, 0 failed** (2026-10-28, after adding the apply endpoint). Earlier runs on the same day passed 82 of 82 before the endpoint was added; see the load note below.
+  - 14 unit tests for application validation: normalization, uncollected fields being dropped, the honeypot, and each error message.
   - **Flaky under load.** The machine's load average was 50–150 during these runs, and 3 of the 6 full runs had failures. They were in different files each time (`outbox`, `pipeline` and `intake-and-access`), with the errors `fetch failed` and 30-second timeouts. The outbox file passed on its own, and the other three full runs passed completely, including the last one. One earlier `outbox` failure (3 tests) didn't record its error. These look environmental, but that isn't proven; rerun on an idle machine or in CI before relying on them.
   - 21 unit tests: validation of the live form payload, templates (no contact details, HTML escaping), the Resend adapter (`Idempotency-Key` header, which errors are retried), and the outbox loop.
   - 23 integration tests: items 1, 2, 4 and 6, run as real `anon` and signed-in users.
@@ -98,7 +101,9 @@ Run on 2026-10-28 against the **local** stack: Supabase CLI 2.122.0, Postgres 17
     - Website applications: duplicates (including simultaneous ones), closed jobs, the wrong agency, consent, server-only access, and rate limiting.
     - Recruiter applications: candidates come from clinician inquiries only. Stage changes need a version, and Rejected and Withdrawn need a reason.
   - 7 integration tests: item 10, covering concurrent claims, backoff, lease expiry, max attempts, and exactly-once sends across worker runs.
-- **`scripts/smoke-functions.sh`** ran the Edge Functions over HTTP: 12 of 13 checks passed on the first run.
+- **`scripts/smoke-functions.sh`**, run on 2026-10-28 after adding `apply`: **27 of 27 checks passed**. That includes the 10 intake checks, which also cover the refactor to the shared HTTP helpers.
+  - `apply`: preflight; `201` on an open job; `200` for a repeat with different capitalization, still saving one row; `409` for a closed job; `404` for an unknown job; `400` for a malformed id or missing consent; the honeypot (nothing saved); `403` for a foreign origin; `415`; `405`. The `apply` log lines held only request ids and outcomes.
+- Earlier smoke run, before `apply`: 12 of 13 checks passed on the first run.
   - Passed: CORS preflight, `201` on submit, `200` for a retry with the same key, `403` for a foreign origin, `400` with the form's error message, `405`, `401` without the outbox secret, and the outbox sending 2 queued notifications through the dev adapter.
   - Honeypot: the first run reported a failure caused by shell quoting in the script. Sent directly, the honeypot returned `200 {"ok":true}`, and the database confirmed no row was saved. The script is fixed; its rerun timed out because the machine was overloaded (below).
   - Function logs contained request ids and outcomes only, and recipients were redacted to `***@example.com`.

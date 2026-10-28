@@ -9,7 +9,7 @@ npm install
 npm run db:start            # local Postgres, Auth, Storage, Edge Runtime, Studio (http://127.0.0.1:55323)
 npm run db:reset            # apply supabase/migrations + supabase/seed.sql (synthetic data only)
 cp supabase/functions/.env.example supabase/functions/.env.local   # then fill both secrets
-npm run functions:serve     # intake + process-outbox at http://127.0.0.1:55321/functions/v1/*
+npm run functions:serve     # intake, apply and process-outbox at http://127.0.0.1:55321/functions/v1/*
 npm test                    # unit tests + integration tests against the local stack
 ```
 
@@ -40,7 +40,7 @@ The integration tests refuse to run unless `supabase status` reports a loopback 
      EMAIL_PROVIDER=dev
    ```
    Keep `EMAIL_PROVIDER=dev` until Resend is set up (see below).
-5. **Deploy functions:** `npx supabase functions deploy intake process-outbox`. `config.toml` already disables JWT verification for both; each function does its own checks.
+5. **Deploy functions:** `npx supabase functions deploy intake apply process-outbox`. `config.toml` already disables JWT verification for all three; each function does its own checks. `apply` uses the same `INTAKE_ORGANIZATION_SLUG`, `INTAKE_IP_HASH_SECRET` and `ALLOWED_ORIGINS` as `intake`.
 6. **Schedule the outbox worker** with `pg_cron` and `pg_net` (enable both extensions in the dashboard). Store the secret in Vault rather than in the job text:
    ```sql
    select vault.create_secret('<OUTBOX_PROCESSOR_SECRET>', 'outbox_processor_secret');

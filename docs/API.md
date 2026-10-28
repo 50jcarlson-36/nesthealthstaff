@@ -119,7 +119,7 @@ Staff send both parts as separate JSON objects. Each function reads only the key
 | `list_public_jobs` | `anon`, `authenticated` | `p_organization_slug` | Open jobs only, newest first, at most 500, with public columns only: `{id, title, specialty, employment_type, city, state, shift, hours_per_week, start_date, duration_weeks, openings, public_description, published_at}` |
 | `submit_job_application` | `service_role` only | `p_organization_slug`, `p_job_id`, `p_application` (`full_name`, `email`, `phone`, `consent_version`), `p_client_hash` | `{status: "created" \| "duplicate" \| "job_closed" \| "job_not_found" \| "rate_limited", application_id?}` |
 
-There's one application per person per job: the same email (in any case) returns `duplicate` with the original id, even when submissions arrive at the same moment. A job that isn't `open` returns `job_closed`. A shared lock on the job means a status change can't land partway through a submission. No public HTTP endpoint calls `submit_job_application` yet. It's meant for a future apply Edge Function that validates the request first, as `intake` does.
+There's one application per person per job: the same email (in any case) returns `duplicate` with the original id, even when submissions arrive at the same moment. A job that isn't `open` returns `job_closed`. A shared lock on the job means a status change can't land partway through a submission. The public `apply` Edge Function below is the only caller.
 
 ### Staff
 
@@ -142,3 +142,55 @@ History:
 
 - `job_events` records `created`, `status_changed`, and `updated`. An `updated` event lists the names of the changed fields, never their values.
 - `application_events` records `created` and `stage_changed`.
+
+## `POST /functions/v1/apply`
+
+Public job applications. This endpoint works like `intake`:
+
+- **Origin:** browsers must send an allowed `Origin`. Server-to-server callers send none.
+- **Content type:** `Content-Type: application/json` is required.
+- **No session needed:** the website calls it without a Supabase session.
+- **Size limit:** the body is limited to 8 KB.
+- **Errors:** `{"error": "<message safe to show>"}`.
+
+The job must be open and must belong to the organization set in `INTAKE_ORGANIZATION_SLUG`. Get job ids from `list_public_jobs`.
+
+### Request body
+
+```json
+{
+  "job_id": "0e16d69e-0a81-405a-8a60-de42b9a9eb79",
+  "name": "Pat Example",
+  "email": "pat@example.com",
+  "phone": "555-0100",
+  "consent": true,
+  "website": ""
+}
+```
+
+| Field | Rules |
+|---|---|
+| `job_id` | Required. A UUID. |
+| `name` (or `full_name`) | Required. 2–160 characters after whitespace is collapsed. |
+| `email` | Required. A valid address, stored in lowercase. |
+| `phone` | Optional. Up to 40 characters. |
+| `consent` | Required. Must be `true` (or `"true"`, `"on"`, `"yes"`). Stored as consent version `2026-10-apply-v1`. |
+| `website` | Honeypot. Leave it empty. |
+
+Any other field is dropped. Applications collect contact details only: no résumé, licence number or free text.
+
+### Responses
+
+| Status | Body | When |
+|---|---|---|
+| `201` | `{"ok": true}` | Saved |
+| `200` | `{"ok": true}` | This email already applied to this job (in any capitalization), or the honeypot was filled. Nothing new is saved. |
+| `400` | error | Validation failed. The message names the problem. |
+| `403` | error | `Origin` isn't allowed |
+| `404` | error | The job doesn't exist, or belongs to another agency |
+| `405` / `413` / `415` | error | Wrong method, body over 8 KB, or not JSON |
+| `409` | `{"error": "This job is no longer taking applications."}` | The job is draft, on hold, filled or closed |
+| `429` | error | More than 10 applications from one client in 10 minutes. The client IP is hashed with `INTAKE_IP_HASH_SECRET`. |
+| `500` / `503` | error | Server error, or the function isn't configured |
+
+Each saved application appears in ward under its job with stage `applied`. No confirmation email is sent yet.
