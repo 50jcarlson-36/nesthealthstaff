@@ -8,7 +8,7 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 |---|---|
 | 1. Intake: submit → inquiry saved → notifications queued | **Built and tested locally.** Not deployed. The frontend isn't connected yet. |
 | 2. Staff: sign in → review → update pipeline | **Built and tested locally.** Database functions `change_inquiry_stage`, `assign_inquiry`, `add_inquiry_note` and `organization_staff` handle stage changes (a reason is required to close), recruiter assignment (same-agency staff only) and append-only notes. Stage and assignment changes use optimistic concurrency via `version`. `ward.` exposes all of it, and was checked in a browser against the local stack only. Not deployed. |
-| 3. Recruiting: jobs, applications | Not started |
+| 3. Recruiting: jobs, applications | **Built and tested locally.** Recruiters enter jobs by hand in `ward.`. Each job is stored in two parts: public fields in `jobs`, and facility, requisition, rates and notes in `job_internal_details`, which only staff can read. The public listing reads only open jobs, through `list_public_jobs`, and only their public columns. Applications go in `job_applications`, from the website via the service-role function `submit_job_application`, or from a recruiter putting forward a clinician inquiry. Pay is internal only until the supplier agreements say otherwise. **Not built yet:** a public apply endpoint (Edge Function), the job board on the website, and application emails. Checked in a browser against the local stack only. Not deployed. |
 | 4. Onboarding: profiles, private documents | Not started |
 | 5. Placement: assignments, housing | Not started |
 
@@ -39,7 +39,7 @@ Most sources below are vendor pages and trade press, not program documentation. 
 
 | Source | What it gives us | Status | Access requirements | Next action |
 |---|---|---|---|---|
-| **Direct facility contracts** | Job orders straight from a hospital, which a recruiter enters in `ward.` | **Available, not connected.** Needs the phase 3 jobs module. | A signed staffing agreement with each facility | Build phase 3 job entry. This is the first-release path. |
+| **Direct facility contracts** | Job orders straight from a hospital, which a recruiter enters in `ward.` | **Available, not connected.** Job entry is built (phase 3), locally only; no real facility contract exists yet. | A signed staffing agreement with each facility | Build phase 3 job entry. This is the first-release path. |
 | **AMN ShiftWise Flex** (VMS) | Open requisitions from hospitals using it | **Access required** | Approval as a supplier in AMN's network (1,100+ suppliers). AMN says suppliers can connect their ATS and payroll by API. No public application page was found. | Contact AMN's supplier relations. [Product page](https://amnhealthcare.com/technology/workforce/vendor-management-systems/shiftwise-flex) |
 | **Medefis** (VMS with managed service, owned by AMN) | Requisitions from its client hospitals | **Access required** | A Medefis-vetted agency. The route for new suppliers isn't published. | Contact Medefis or AMN business development. [Overview](https://www.allhealthinc.com/strategic-business-partner/medefis) |
 | **Aya LotusOne** (formerly Aya Connect VMS) | Requisitions from hospitals using Aya's platform | **Unverified** | No supplier registration documentation was found | Ask Aya about subcontractor/supplier access. [Sales sheet](https://www.ayahealthcare.com/wp-content/uploads/sites/2/2025/06/LotusOne_Aya_DigitalPlatform_SalesSheet.pdf) |
@@ -61,13 +61,14 @@ Most sources below are vendor pages and trade press, not program documentation. 
 |---|---|---|
 | 1 | Intake saves an inquiry and queues notifications | Test written (`tests/integration/intake-and-access.test.ts`) |
 | 2 | Anonymous users cannot read private inquiries or profiles | Test written |
-| 3 | Clinicians can't access other clinicians' documents or applications | Phase 3–4 |
+| 3 | Clinicians can't access other clinicians' documents or applications | Phase 4. Clinician accounts don't exist yet. Today only staff of the owning agency can read applications (tested in `jobs.test.ts`). |
 | 4 | Recruiters cannot access another organization's records | Test written |
 | 5 | Facility users cannot access unrelated facilities | Phase 3 (facility memberships aren't built yet) |
 | 6 | Users cannot promote themselves or change protected fields | Test written |
 | 2b | Pipeline changes are validated, scoped to the agency and safe under concurrency | Test written (`tests/integration/pipeline.test.ts`) |
-| 7 | Duplicate applications are handled safely | Phase 3. Duplicate *inquiries* are tested. |
-| 8 | Closed jobs reject applications | Phase 3 |
+| 3b | Internal job fields never reach the public listing | Test written: internal values, including ones sent in the public object by mistake, are absent from `list_public_jobs` |
+| 7 | Duplicate applications are handled safely | Test written (`tests/integration/jobs.test.ts`), including three simultaneous submissions |
+| 8 | Closed jobs reject applications | Test written: draft, on hold, filled and closed jobs all refuse, from the website and from recruiters |
 | 9 | Document access controls | Phase 4 |
 | 10 | Notification retries don't produce duplicate sends | Test written (`tests/integration/outbox.test.ts`) |
 | 11–14 | Housing | Phase 5 |
@@ -84,10 +85,18 @@ The "Test results" section below records whether each test has actually run and 
 
 Run on 2026-10-28 against the **local** stack: Supabase CLI 2.122.0, Postgres 17, synthetic data only.
 
-- **`npm test`: 64 passed, 0 failed** (rerun on 2026-10-28 after the phase 2 migration). The first run straight after `supabase db reset` had 2 failures while the containers were still restarting under heavy load; the failing test names weren't captured. The immediate rerun passed in full.
+- **`npm test`: 82 passed, 0 failed** (2026-10-28, after the phase 3 migration).
+  - **Flaky under load.** The machine's load average was 50–150 during these runs, and 3 of the 6 full runs had failures. They were in different files each time (`outbox`, `pipeline` and `intake-and-access`), with the errors `fetch failed` and 30-second timeouts. The outbox file passed on its own, and the other three full runs passed completely, including the last one. One earlier `outbox` failure (3 tests) didn't record its error. These look environmental, but that isn't proven; rerun on an idle machine or in CI before relying on them.
   - 21 unit tests: validation of the live form payload, templates (no contact details, HTML escaping), the Resend adapter (`Idempotency-Key` header, which errors are retried), and the outbox loop.
   - 23 integration tests: items 1, 2, 4 and 6, run as real `anon` and signed-in users.
   - 13 integration tests for the phase 2 pipeline: stage changes with version conflicts (including two simultaneous saves where exactly one wins), closing reasons, assignment limited to same-agency staff, append-only notes, other agencies seeing "not found", anonymous users refused, and direct table writes still blocked.
+  - 18 integration tests for phase 3:
+    - Job entry: validation messages, a version check on edits, and history that lists which fields changed, never their values.
+    - Public listing: only open jobs and only public columns, with no internal values even when they're sent in the public object by mistake.
+    - Access: anonymous users and other agencies are kept out of the tables.
+    - Status: a published job can't go back to draft.
+    - Website applications: duplicates (including simultaneous ones), closed jobs, the wrong agency, consent, server-only access, and rate limiting.
+    - Recruiter applications: candidates come from clinician inquiries only. Stage changes need a version, and Rejected and Withdrawn need a reason.
   - 7 integration tests: item 10, covering concurrent claims, backoff, lease expiry, max attempts, and exactly-once sends across worker runs.
 - **`scripts/smoke-functions.sh`** ran the Edge Functions over HTTP: 12 of 13 checks passed on the first run.
   - Passed: CORS preflight, `201` on submit, `200` for a retry with the same key, `403` for a foreign origin, `400` with the form's error message, `405`, `401` without the outbox secret, and the outbox sending 2 queued notifications through the dev adapter.

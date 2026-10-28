@@ -1,5 +1,6 @@
 // Seeds the LOCAL stack for trying the ward portal: a recruiter and an admin on
-// the synthetic dev organization and a few synthetic inquiries. Refuses to run
+// the synthetic dev organization, a few synthetic inquiries, and two synthetic
+// jobs (one open with a website application, one draft). Refuses to run
 // against anything but a loopback Supabase URL.
 //
 //   node scripts/dev-ward-seed.mjs
@@ -27,9 +28,16 @@ const STAFF = [
   { email: RECRUITER_EMAIL, full_name: "Dev Recruiter", role: "recruiter" },
   { email: "admin@example.com", full_name: "Dev Admin", role: "admin" },
 ];
-const { data: list } = await service.auth.admin.listUsers();
+// Integration tests leave many users behind, so page through all of them.
+const users = [];
+for (let page = 1; ; page++) {
+  const { data, error } = await service.auth.admin.listUsers({ page, perPage: 1000 });
+  if (error) throw error;
+  users.push(...data.users);
+  if (data.users.length < 1000) break;
+}
 for (const member of STAFF) {
-  let user = list.users.find((u) => u.email === member.email);
+  let user = users.find((u) => u.email === member.email);
   if (!user) {
     const { data, error } = await service.auth.admin.createUser({ email: member.email, email_confirm: true, user_metadata: { full_name: member.full_name } });
     if (error) throw error;
@@ -64,4 +72,38 @@ for (const inquiry of inquiries) {
   if (data.status === "created") created++;
 }
 
-console.log(`${STAFF.map((m) => m.email).join(" and ")} are staff of ${ORG_SLUG}; ${created} new synthetic inquiries.`);
+// Jobs. Staff create jobs through create_job in ward; the seed has no signed-in
+// user, so it writes the rows directly with the service role. Every value is
+// made up, including the facility and the rate note.
+const JOBS = [
+  {
+    job: { status: "open", published_at: new Date().toISOString(), title: "Travel RN, Telemetry (nights)", specialty: "Telemetry", employment_type: "travel", city: "Boise", state: "ID", shift: "night", hours_per_week: 36, start_date: "2026-12-07", duration_weeks: 13, openings: 2, public_description: "Synthetic dev job. Not a real opening." },
+    internal: { facility_name: "Example Regional Medical Center", facility_contact: "Unit manager (synthetic)", source: "direct_contract", requisition_reference: "DEV-001", rate_notes: "Synthetic placeholder, not a real rate." },
+    applicant: { full_name: "Casey Applicant", email: "casey@example.com", phone: null, consent_version: "dev-seed" },
+  },
+  {
+    job: { status: "draft", title: "Local contract RN, Labor & Delivery", specialty: "Labor & Delivery", employment_type: "local_contract", city: "Phoenix", state: "AZ", shift: "day", openings: 1, public_description: "Synthetic dev job. Not a real opening." },
+    internal: { facility_name: "Sample Community Hospital", source: "direct_contract", requisition_reference: "DEV-002" },
+  },
+];
+
+let jobsCreated = 0;
+for (const { job, internal, applicant } of JOBS) {
+  const { data: existing } = await service.from("job_internal_details").select("job_id").eq("organization_id", org.id).eq("requisition_reference", internal.requisition_reference).maybeSingle();
+  if (existing) continue;
+  const { data: row, error } = await service.from("jobs").insert({ ...job, organization_id: org.id }).select("id").single();
+  if (error) throw error;
+  const { error: internalError } = await service.from("job_internal_details").insert({ ...internal, job_id: row.id, organization_id: org.id });
+  if (internalError) throw internalError;
+  const events = [{ event_type: "created", to_status: "draft" }];
+  if (job.status !== "draft") events.push({ event_type: "status_changed", from_status: "draft", to_status: job.status });
+  const { error: eventError } = await service.from("job_events").insert(events.map((e) => ({ ...e, job_id: row.id, organization_id: org.id, details: { source: "dev-seed" } })));
+  if (eventError) throw eventError;
+  if (applicant) {
+    const { error: applyError } = await service.rpc("submit_job_application", { p_organization_slug: ORG_SLUG, p_job_id: row.id, p_application: applicant });
+    if (applyError) throw applyError;
+  }
+  jobsCreated++;
+}
+
+console.log(`${STAFF.map((m) => m.email).join(" and ")} are staff of ${ORG_SLUG}; ${created} new synthetic inquiries; ${jobsCreated} new synthetic jobs.`);

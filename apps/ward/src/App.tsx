@@ -13,18 +13,11 @@ import {
   type StaffMember,
   supabase,
 } from "./supabase.ts";
-
-type StaffDirectory = Map<string, StaffMember & { organization_id: string }>;
-
-function staffName(staff: StaffDirectory, id: string | null | undefined): string {
-  if (!id) return "Unassigned";
-  const s = staff.get(id);
-  if (!s) return "Former staff member";
-  return s.full_name ?? `Unnamed ${s.role}`;
-}
+import { JobDetail, JobList, JobNew } from "./jobs.tsx";
+import { formatDate, label, Link, type Save, type StaffDirectory, staffName, useSave } from "./shared.tsx";
 
 // --- Routing ---------------------------------------------------------------
-// Two routes, so a small history wrapper instead of a router dependency.
+// A handful of routes, so a small history wrapper instead of a router dependency.
 // Staff alert emails link to /inquiries/<id>.
 
 const RETURN_TO_KEY = "ward:return-to";
@@ -41,21 +34,6 @@ function usePath(): [string, (to: string) => void] {
     setPath(to);
   };
   return [path, navigate];
-}
-
-function Link({ to, navigate, children }: { to: string; navigate: (to: string) => void; children: React.ReactNode }) {
-  return (
-    <a
-      href={to}
-      onClick={(e) => {
-        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-        e.preventDefault();
-        navigate(to);
-      }}
-    >
-      {children}
-    </a>
-  );
 }
 
 // --- App shell ---------------------------------------------------------------
@@ -187,6 +165,8 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
   }
 
   const inquiryMatch = path.match(/^\/inquiries\/([0-9a-f-]{36})$/i);
+  const jobMatch = path.match(/^\/jobs\/([0-9a-f-]{36})$/i);
+  const section = path.startsWith("/jobs") ? "jobs" : "inquiries";
 
   return (
     <>
@@ -194,6 +174,10 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
         <Link to="/" navigate={navigate}>
           <strong>Ward</strong>
         </Link>
+        <nav className="tabs">
+          <Link to="/" navigate={navigate}><span aria-current={section === "inquiries" ? "page" : undefined}>Inquiries</span></Link>
+          <Link to="/jobs" navigate={navigate}><span aria-current={section === "jobs" ? "page" : undefined}>Jobs</span></Link>
+        </nav>
         <span className="muted">{memberships.map((m) => `${m.organizations?.name ?? "Agency"} · ${m.role}`).join(", ")}</span>
         <span className="spacer" />
         <span className="muted">{session.user.email}</span>
@@ -204,6 +188,12 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
           <InquiryDetail id={inquiryMatch[1]} navigate={navigate} staff={staff} />
         ) : path === "/" ? (
           <InquiryList navigate={navigate} staff={staff} userId={session.user.id} />
+        ) : jobMatch ? (
+          <JobDetail id={jobMatch[1]} navigate={navigate} staff={staff} />
+        ) : path === "/jobs/new" ? (
+          <JobNew navigate={navigate} memberships={memberships} />
+        ) : path === "/jobs" ? (
+          <JobList navigate={navigate} />
         ) : (
           <p>Page not found. <Link to="/" navigate={navigate}>Back to inquiries</Link></p>
         )}
@@ -459,28 +449,6 @@ function describeEvent(e: InquiryEvent, staff: StaffDirectory): string {
   }
 }
 
-// Each form sends the version it was rendered with. If someone else saved in
-// between, the server refuses (PT409): the page reloads the latest state and
-// shows the conflict above the forms. Forms are keyed by version, so they reset
-// after any successful save.
-
-type RpcResult = PromiseLike<{ error: { code?: string; message: string } | null }>;
-type Save = (call: () => RpcResult) => Promise<{ ok: boolean; error: string | null }>;
-
-function useSave(save: Save) {
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  async function run(call: () => RpcResult) {
-    setSaving(true);
-    setError(null);
-    const result = await save(call);
-    setSaving(false);
-    setError(result.error);
-    return result.ok;
-  }
-  return { saving, error, run };
-}
-
 function StageForm({ inquiry, save }: { inquiry: Inquiry; save: Save }) {
   const [stage, setStage] = useState<InquiryStage>(inquiry.stage);
   const [reason, setReason] = useState("");
@@ -576,20 +544,9 @@ function NoteForm({ inquiryId, save }: { inquiryId: string; save: Save }) {
   );
 }
 
-// --- Formatting --------------------------------------------------------------
-
 const TIMELINES: Record<string, string> = {
   asap: "As soon as possible",
   within_1_3_months: "Within 1–3 months",
   within_3_6_months: "Within 3–6 months",
   exploring: "Just exploring",
 };
-
-function label(value: string): string {
-  const s = value.replace(/_/g, " ");
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: iso.length > 10 ? "short" : undefined });
-}

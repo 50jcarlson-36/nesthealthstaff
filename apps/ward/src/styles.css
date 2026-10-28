@@ -106,3 +106,30 @@ textarea { font: inherit; width: 100%; padding: 0.5rem 0.6rem; border: 1px solid
 .notes p { margin: 0; }
 .note-body { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 0.25rem !important; }
 .conflict { margin: 1rem 0 0; padding: 0.75rem 1rem; border-color: var(--error); color: var(--error); }
+
+.tabs { display: flex; gap: 1rem; }
+.tabs [aria-current="page"] { color: var(--accent); font-weight: 600; }
+.page-title { margin: 1rem 0 0.25rem; }
+h3 { font-size: 0.8rem; color: var(--muted); font-weight: normal; margin: 1rem 0 0.25rem; }
+.hint { font-size: 0.8rem; margin: 0; }
+.description { margin-top: 1rem !important; }
+
+.job-form { display: grid; gap: 1rem; margin-top: 1rem; }
+.job-form fieldset { margin: 0; min-width: 0; }
+.job-form legend { font-weight: 600; padding: 0 0.25rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem 1rem; margin-top: 0.75rem; }
+.field { display: grid; gap: 0.25rem; align-content: start; }
+.field label { font-size: 0.8rem; color: var(--muted); }
+.field.wide { grid-column: 1 / -1; }
+.field input, .field select { width: 100%; }
+/* Internal-only areas get a dashed edge so they're never mistaken for the public listing. */
+.internal { border-style: dashed; }
+
+.job-open { border-color: var(--accent); color: var(--accent); }
+.job-filled, .job-closed, .app-rejected, .app-withdrawn { color: var(--muted); }
+.app-hired, .app-offered { border-color: var(--accent); color: var(--accent); }
+.add-candidate { margin-bottom: 1rem; max-width: 560px; }
+.application-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.application-head p { margin: 0.2rem 0 0; }
+.application .action { min-width: 220px; }
+.application details { margin-top: 0.5rem; }

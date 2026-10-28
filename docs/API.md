@@ -76,7 +76,8 @@ The portals read with the Supabase client, using the publishable/anon key and th
 | `organizations` | Members of that organization | none |
 | `organization_memberships` | The user's own memberships; admins see their organization's | none: memberships are created only by server code |
 | `profiles` | The user's own profile, plus colleagues in a shared organization | the user's own `full_name` and `phone` |
-| `inquiries`, `inquiry_events` | Admins and recruiters of the owning organization | none yet: pipeline changes come in phase 2 |
+| `inquiries`, `inquiry_events`, `inquiry_notes` | Admins and recruiters of the owning organization | none: changes go through the pipeline functions below |
+| `jobs`, `job_internal_details`, `job_events`, `job_applications`, `application_events` | Admins and recruiters of the owning organization. `anon` has no table access. | none: changes go through the job functions below |
 | `notification_outbox`, `audit_events` | Admins of the owning organization | none |
 | `intake_rate_limits` | nobody | none |
 
@@ -101,3 +102,43 @@ Errors:
 | `42501` | 401/403 | Not signed in. |
 
 Every change writes an `inquiry_events` row (`stage_changed`, `assigned` or `note_added`) with the actor. Notes go to `inquiry_notes`, which staff can read but never edit or delete.
+
+## Jobs and applications (phase 3)
+
+A job is stored in two parts:
+
+- **`jobs`**: fields that may be published. These are the title, specialty, employment type, city, state, shift, hours, start date, duration, openings and public description.
+- **`job_internal_details`**: what stays inside the agency. This is the facility, contact, source, requisition reference, rate notes and internal notes.
+
+Staff send both parts as separate JSON objects. Each function reads only the keys it expects from each object, so an internal field sent in the public object is ignored, not published. Pay is internal only for now (see STATUS.md, "Publishing constraint").
+
+### Public
+
+| Function | Who | Arguments | Returns |
+|---|---|---|---|
+| `list_public_jobs` | `anon`, `authenticated` | `p_organization_slug` | Open jobs only, newest first, at most 500, with public columns only: `{id, title, specialty, employment_type, city, state, shift, hours_per_week, start_date, duration_weeks, openings, public_description, published_at}` |
+| `submit_job_application` | `service_role` only | `p_organization_slug`, `p_job_id`, `p_application` (`full_name`, `email`, `phone`, `consent_version`), `p_client_hash` | `{status: "created" \| "duplicate" \| "job_closed" \| "job_not_found" \| "rate_limited", application_id?}` |
+
+There's one application per person per job: the same email (in any case) returns `duplicate` with the original id, even when submissions arrive at the same moment. A job that isn't `open` returns `job_closed`. A shared lock on the job means a status change can't land partway through a submission. No public HTTP endpoint calls `submit_job_application` yet. It's meant for a future apply Edge Function that validates the request first, as `intake` does.
+
+### Staff
+
+These are called with the staff member's own session, like the pipeline functions above, and use the same error codes.
+
+| Function | Arguments | Returns |
+|---|---|---|
+| `create_job` | `p_organization_id` (checked against the caller's memberships), `p_job`, `p_internal` | `{id, status: "draft", version}` |
+| `update_job` | `p_job_id`, `p_expected_version`, `p_job`, `p_internal` (replaces every editable field; `PT400 "Nothing changed"` if nothing did) | `{id, version}` |
+| `set_job_status` | `p_job_id`, `p_expected_version`, `p_status` (`draft`, `open`, `on_hold`, `filled`, `closed`) | `{id, status, published_at, version}` |
+| `add_application_from_inquiry` | `p_job_id` (must be open), `p_inquiry_id` (a clinician inquiry from the same agency; name, email and phone are copied from it) | `{id}` |
+| `change_application_stage` | `p_application_id`, `p_expected_version`, `p_stage` (`applied`, `screening`, `submitted`, `offered`, `hired`, `rejected`, `withdrawn`), `p_reason` (required for `rejected` and `withdrawn`, refused otherwise) | `{id, stage, stage_reason, version}` |
+
+How job status works:
+
+- Opening a job sets `published_at` the first time. After that, the job can't go back to `draft`.
+- Every status other than `open` hides the job from the listing and refuses new applications. Existing applications are kept.
+
+History:
+
+- `job_events` records `created`, `status_changed`, and `updated`. An `updated` event lists the names of the changed fields, never their values.
+- `application_events` records `created` and `stage_changed`.
