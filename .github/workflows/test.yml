@@ -1,0 +1,60 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Local stack only: migrations and synthetic seed data, no hosted project.
+      - name: Start local Supabase
+        run: npm run db:start
+
+      - name: Run unit and integration tests
+        run: npm test
+
+      - name: Serve Edge Functions with throwaway secrets
+        run: |
+          sed -e "s/^INTAKE_IP_HASH_SECRET=.*/INTAKE_IP_HASH_SECRET=$(openssl rand -hex 32)/" \
+              -e "s/^OUTBOX_PROCESSOR_SECRET=.*/OUTBOX_PROCESSOR_SECRET=$(openssl rand -hex 32)/" \
+              supabase/functions/.env.example > supabase/functions/.env.local
+          nohup npm run functions:serve > functions.log 2>&1 &
+          for i in $(seq 1 60); do
+            grep -q 'Serving functions' functions.log && exit 0
+            sleep 2
+          done
+          cat functions.log
+          exit 1
+
+      - name: HTTP smoke test
+        run: ./scripts/smoke-functions.sh
+
+      - name: Function logs
+        if: always()
+        run: cat functions.log 2>/dev/null || true
+
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop --no-backup
