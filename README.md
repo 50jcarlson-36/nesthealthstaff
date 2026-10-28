@@ -7,7 +7,7 @@ Supabase backend for Nest Health Staff, a travel-nursing staffing service that c
 | `nesthealthstaff.com` | Public website. The existing Sites frontend; its source isn't in this repo yet. |
 | `staff.nesthealthstaff.com` | Clinician portal: applicants and their own profiles (planned) |
 | `employers.nesthealthstaff.com` | Facility portal: hospitals managing staff and approving applicants (planned) |
-| `morgue.nesthealthstaff.com` | Agency back office: admins and recruiters (planned) |
+| `ward.nesthealthstaff.com` | Agency back office: admins and recruiters (planned) |
 
 ## What's here
 

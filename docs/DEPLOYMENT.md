@@ -36,7 +36,7 @@ The integration tests refuse to run unless `supabase status` reports a loopback 
      PUBLIC_SITE_URL=https://nesthealthstaff.com \
      CLINICIAN_PORTAL_URL=https://staff.nesthealthstaff.com \
      FACILITY_PORTAL_URL=https://employers.nesthealthstaff.com \
-     ADMIN_PORTAL_URL=https://morgue.nesthealthstaff.com \
+     ADMIN_PORTAL_URL=https://ward.nesthealthstaff.com \
      EMAIL_PROVIDER=dev
    ```
    Keep `EMAIL_PROVIDER=dev` until Resend is set up (see below).
@@ -64,7 +64,7 @@ Set these in Dashboard → Authentication → URL Configuration:
 - **Redirect URLs:**
   - `https://staff.nesthealthstaff.com/**` (clinician portal)
   - `https://employers.nesthealthstaff.com/**` (facility portal)
-  - `https://morgue.nesthealthstaff.com/**` (agency back office)
+  - `https://ward.nesthealthstaff.com/**` (agency back office)
 
 Hostnames do not grant access; RLS does. Someone who signs in on any portal gets only what their memberships allow.
 
@@ -73,7 +73,7 @@ Hostnames do not grant access; RLS does. Someone who signs in on any portal gets
 **Not done.** The apex `nesthealthstaff.com` does not resolve yet (checked 2026-10-27). To finish:
 
 1. Activate the zone in Cloudflare, so the apex resolves and serves HTTPS.
-2. Decide where each portal is hosted. Then, for `staff`, `employers` and `morgue`, add DNS records and custom-domain bindings with that host. None of the portal frontends exist yet.
+2. Decide where each portal is hosted. Then, for `staff`, `employers` and `ward`, add DNS records and custom-domain bindings with that host. None of the portal frontends exist yet.
 
 ## Email (Resend)
 

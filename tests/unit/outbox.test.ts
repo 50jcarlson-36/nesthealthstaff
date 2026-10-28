@@ -74,13 +74,13 @@ describe("ResendEmailAdapter", () => {
 });
 
 describe("templates", () => {
-  it("staff alerts link to the morgue back office and contain no contact details", () => {
+  it("staff alerts link to the ward back office and contain no contact details", () => {
     const email = renderTemplate(
       "staff_new_inquiry_alert",
       { inquiry_id: "abc-123", inquiry_type: "clinician", specialty: "Telemetry" },
       DEFAULT_PORTAL_URLS,
     );
-    expect(email.text).toContain("https://morgue.nesthealthstaff.com/inquiries/abc-123");
+    expect(email.text).toContain("https://ward.nesthealthstaff.com/inquiries/abc-123");
     expect(email.html).not.toMatch(/@|\d{3}[-. ]\d{4}/);
   });
 

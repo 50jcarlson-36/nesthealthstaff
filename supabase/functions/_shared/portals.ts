@@ -4,7 +4,7 @@
 //   nesthealthstaff.com           public website (existing Sites frontend)
 //   staff.nesthealthstaff.com     clinician portal (applicants and their profiles)
 //   employers.nesthealthstaff.com facility portal (hospital staff, applicant review)
-//   morgue.nesthealthstaff.com    agency admin and recruiter back office
+//   ward.nesthealthstaff.com      agency admin and recruiter back office
 //
 // A hostname is never an authorization boundary: every portal uses the same
 // Supabase project and RLS decides what each signed-in user can read.
@@ -20,7 +20,7 @@ export const DEFAULT_PORTAL_URLS: PortalUrls = {
   publicSite: "https://nesthealthstaff.com",
   clinicianPortal: "https://staff.nesthealthstaff.com",
   facilityPortal: "https://employers.nesthealthstaff.com",
-  adminPortal: "https://morgue.nesthealthstaff.com",
+  adminPortal: "https://ward.nesthealthstaff.com",
 };
 
 function origin(value: string | undefined, fallback: string): string {

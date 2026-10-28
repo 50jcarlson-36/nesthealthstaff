@@ -23,7 +23,7 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 | Live website `/api/leads` | **Unverified** | The endpoint exists and returns 405 to GET. Where it stores leads is unknown. | Get the Sites source and point the form at `/functions/v1/intake` | The Sites export to GitHub failed twice. |
 | Email: Resend | **Available, not connected** | [Resend send-email API](https://resend.com/docs/api-reference/emails/send-email), checked 2026-10-28. It supports `Idempotency-Key` (24h retention). | Create an account, verify the sender domain in Cloudflare, set secrets | No account, key or verified domain. Notifications currently use the **dev adapter**, which logs and doesn't deliver. |
 | Domain `nesthealthstaff.com` | **Unverified, not live** | The name didn't resolve in DNS on 2026-10-27 | Finish Cloudflare activation | Cloudflare access |
-| Subdomains `staff.`, `employers.`, `morgue.` | **Unverified** | Planned hosts, now used in email links, CORS and auth docs | Create DNS records and hosting once the portals exist | No portal frontends yet, and DNS isn't active |
+| Subdomains `staff.`, `employers.`, `ward.` | **Unverified** | Planned hosts, now used in email links, CORS and auth docs | Create DNS records and hosting once the portals exist | No portal frontends yet, and DNS isn't active |
 | NurseRecruiter.com: **jobs in** | **Unverified (not offered)** | The [API docs](https://api.nurserecruiter.com/) (checked 2026-10-28) document only `GET /v1/candidates` and `GET /v1/resume/{id}`. There's no jobs endpoint or job feed. The site lets employers *post* jobs there. | Ask NurseRecruiter whether a job feed or partner syndication exists | No documented route |
 | NurseRecruiter.com: candidates in | **Access required** | The same docs describe Bearer-token auth, issued "once your integration is enabled". Up to 100 candidates per page, filterable by acquisition date. Rate limits and webhooks aren't documented. | Needs an employer account with the integration enabled. Importing resumes also needs phase 4 private document storage. | No account or token |
 | SMS: Twilio | **Deferred** | n/a | The outbox `channel` column can take SMS later | n/a |
@@ -39,7 +39,7 @@ Most sources below are vendor pages and trade press, not program documentation. 
 
 | Source | What it gives us | Status | Access requirements | Next action |
 |---|---|---|---|---|
-| **Direct facility contracts** | Job orders straight from a hospital, which a recruiter enters in `morgue.` | **Available, not connected.** Needs the phase 3 jobs module. | A signed staffing agreement with each facility | Build phase 3 job entry. This is the first-release path. |
+| **Direct facility contracts** | Job orders straight from a hospital, which a recruiter enters in `ward.` | **Available, not connected.** Needs the phase 3 jobs module. | A signed staffing agreement with each facility | Build phase 3 job entry. This is the first-release path. |
 | **AMN ShiftWise Flex** (VMS) | Open requisitions from hospitals using it | **Access required** | Approval as a supplier in AMN's network (1,100+ suppliers). AMN says suppliers can connect their ATS and payroll by API. No public application page was found. | Contact AMN's supplier relations. [Product page](https://amnhealthcare.com/technology/workforce/vendor-management-systems/shiftwise-flex) |
 | **Medefis** (VMS with managed service, owned by AMN) | Requisitions from its client hospitals | **Access required** | A Medefis-vetted agency. The route for new suppliers isn't published. | Contact Medefis or AMN business development. [Overview](https://www.allhealthinc.com/strategic-business-partner/medefis) |
 | **Aya LotusOne** (formerly Aya Connect VMS) | Requisitions from hospitals using Aya's platform | **Unverified** | No supplier registration documentation was found | Ask Aya about subcontractor/supplier access. [Sales sheet](https://www.ayahealthcare.com/wp-content/uploads/sites/2/2025/06/LotusOne_Aya_DigitalPlatform_SalesSheet.pdf) |
@@ -51,7 +51,7 @@ Most sources below are vendor pages and trade press, not program documentation. 
 **Publishing constraint (unverified):** VMS job orders are supplied to approved vendors under program terms. Whether we may show them publicly, including the facility name, pay rates and the hospital's own description, has to be checked in each supplier agreement before anything flows to our public job board. The jobs schema should therefore keep internal job-order details separate from the fields we publish.
 
 **Recommended order:**
-1. In phase 3, recruiters enter jobs manually in `morgue.` from direct facility contracts.
+1. In phase 3, recruiters enter jobs manually in `ward.` from direct facility contracts.
 2. Apply for supplier status on one or two VMS programs.
 3. Add an aggregator or a VMS API only once those agreements allow it.
 
@@ -78,7 +78,7 @@ The "Test results" section below records whether each test has actually run and 
 - **Single agency or multi-agency.** This is still undecided. The schema separates organizations either way, and nothing assumes billing or self-signup.
 - **Inquiry retention period**, and how a person can ask for deletion.
 - **Which address receives staff alerts:** the `intake_notification_email` on the production organization.
-- **Where the portal frontends are hosted:** `staff.`, `employers.` and `morgue.`.
+- **Where the portal frontends are hosted:** `staff.`, `employers.` and `ward.`.
 
 ## Test results
 
