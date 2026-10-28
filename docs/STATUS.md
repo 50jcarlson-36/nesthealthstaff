@@ -31,6 +31,30 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 | Housing: Extended Stay, Marriott, Hilton | **Unverified** | Not researched yet. No relationships exist. | Research official partner and affiliate routes (phase 5) | n/a |
 | License verification, background checks, e-signature, payroll | **Deferred** | n/a | n/a | Providers not chosen |
 
+## Job listing sources (researched 2026-10-28)
+
+How it works: hospitals buy travel and contract nurses through direct agency contracts, or through a **vendor management system (VMS)**, often run by a **managed service provider (MSP)**. Job orders go only to agencies approved as suppliers on that program. We found **no public feed** of travel-nurse job orders that an agency can subscribe to. Every route below starts with a business agreement, not an API key.
+
+Most sources below are vendor pages and trade press, not program documentation. Exact supplier requirements and API terms come from each program once you start the supplier process.
+
+| Source | What it gives us | Status | Access requirements | Next action |
+|---|---|---|---|---|
+| **Direct facility contracts** | Job orders straight from a hospital, which a recruiter enters in `morgue.` | **Available, not connected.** Needs the phase 3 jobs module. | A signed staffing agreement with each facility | Build phase 3 job entry. This is the first-release path. |
+| **AMN ShiftWise Flex** (VMS) | Open requisitions from hospitals using it | **Access required** | Approval as a supplier in AMN's network (1,100+ suppliers). AMN says suppliers can connect their ATS and payroll by API. No public application page was found. | Contact AMN's supplier relations. [Product page](https://amnhealthcare.com/technology/workforce/vendor-management-systems/shiftwise-flex) |
+| **Medefis** (VMS with managed service, owned by AMN) | Requisitions from its client hospitals | **Access required** | A Medefis-vetted agency. The route for new suppliers isn't published. | Contact Medefis or AMN business development. [Overview](https://www.allhealthinc.com/strategic-business-partner/medefis) |
+| **Aya LotusOne** (formerly Aya Connect VMS) | Requisitions from hospitals using Aya's platform | **Unverified** | No supplier registration documentation was found | Ask Aya about subcontractor/supplier access. [Sales sheet](https://www.ayahealthcare.com/wp-content/uploads/sites/2/2025/06/LotusOne_Aya_DigitalPlatform_SalesSheet.pdf) |
+| **Hallmark Total Vendor Management** (VMS) | Requisitions, with candidate submission through Vivian's integration | **Unverified** | Supplier approval on Hallmark programs | Ask Hallmark about supplier onboarding. [Announcement](https://hitconsultant.net/2025/10/31/vivian-health-and-hallmark-partner-to-integrate-ai-hiring-tech-for-healthcare-staffing/) |
+| **VMS job-order aggregators** (JobRobotix JobSource, LaborEdge Nexus ATS) | Pull requisitions from the VMS portals we're approved on into a single feed | **Unverified**, and only useful after supplier approval | A commercial subscription plus our own VMS logins. Neither publishes a job API for third parties. | Revisit once we're on at least one VMS. [JobRobotix + LaborEdge](https://jobrobotix.com/?p=4074) |
+| **Vivian Health** | **Distribution, not a source.** A marketplace where agencies *post* jobs to reach nurses. | **Unverified** | Agency partner account. Feed format undocumented in public sources. | Consider later as an outbound channel |
+| **NurseRecruiter.com** | No jobs, only candidates and resumes (see the table above) | **Unverified (not offered)** | n/a | n/a |
+
+**Publishing constraint (unverified):** VMS job orders are supplied to approved vendors under program terms. Whether we may show them publicly, including the facility name, pay rates and the hospital's own description, has to be checked in each supplier agreement before anything flows to our public job board. The jobs schema should therefore keep internal job-order details separate from the fields we publish.
+
+**Recommended order:**
+1. In phase 3, recruiters enter jobs manually in `morgue.` from direct facility contracts.
+2. Apply for supplier status on one or two VMS programs.
+3. Add an aggregator or a VMS API only once those agreements allow it.
+
 ## Required verification items
 
 | # | Item | State |
