@@ -76,7 +76,8 @@ Checked 2026-10-28:
 |---|---|---|
 | `nesthealthstaff.com` | Cloudflare (registrar and nameservers) | Sites frontend, HTTPS `200` |
 | `www.nesthealthstaff.com` | CNAME `custom-domains.chatgpt.site` | Same site, HTTPS `200`. It doesn't redirect to the apex. |
-| `staff.` / `employers.` / `ward.` | **No records** | Nothing yet |
+| `staff.` / `employers.` | **No records** | Nothing yet |
+| `ward.` | **No record yet**. It's created by `wrangler deploy` (see below). | Nothing until deployed |
 
 To bring up a portal subdomain:
 
@@ -85,6 +86,19 @@ To bring up a portal subdomain:
 3. Check it with `curl -I https://staff.nesthealthstaff.com`. Only then mark it live in STATUS.md.
 
 Don't point a portal subdomain at the marketing site as a placeholder. Auth emails and staff alerts already link to these hosts, so a wrong target would send people to the wrong page.
+
+## Ward portal (Cloudflare Workers)
+
+**Not deployed.** `apps/ward` is a static React app served by Workers static assets; there is no Worker script. `wrangler.jsonc` binds the custom domain `ward.nesthealthstaff.com`, so the first deploy creates its DNS record and certificate in the Cloudflare zone.
+
+1. Finish the hosted Supabase steps above, so production has the ward redirect URL and at least one staff membership.
+2. Create `apps/ward/.env.production` with the hosted project's URL and **publishable** key. Never use a secret or service-role key here.
+3. `cd apps/ward && npx wrangler login && npm run deploy`. Deploying needs Cloudflare access to the `nesthealthstaff.com` account.
+4. Verify that `curl -I https://ward.nesthealthstaff.com` returns `200` with the `Content-Security-Policy` and `X-Robots-Tag` headers from `public/_headers`. Then sign in with a real staff account.
+
+Staff accounts are invite-only: the sign-in form uses `shouldCreateUser: false`. To add someone, invite them under Dashboard → Authentication, then insert their `organization_memberships` row in the SQL editor. There's no in-app user management yet.
+
+The CSP in `public/_headers` names the hosted project `fugzapgjowwwqgymcdbl`. Update it if the project changes.
 
 ## Email (Resend)
 

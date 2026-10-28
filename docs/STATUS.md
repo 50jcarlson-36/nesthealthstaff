@@ -7,7 +7,7 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 | Phase | State |
 |---|---|
 | 1. Intake: submit → inquiry saved → notifications queued | **Built and tested locally.** Not deployed. The frontend isn't connected yet. |
-| 2. Staff: sign in → review → update pipeline | Not started. Read access and RLS exist; stage changes, notes, assignment and concurrency control are next. |
+| 2. Staff: sign in → review → update pipeline | **Started.** The `ward.` portal (`apps/ward`) does magic-link sign-in, an inquiry list with filters, and a read-only detail page with history. It was checked in a browser against the local stack only. Stage changes, notes, assignment and concurrency control are next. |
 | 3. Recruiting: jobs, applications | Not started |
 | 4. Onboarding: profiles, private documents | Not started |
 | 5. Placement: assignments, housing | Not started |
@@ -23,7 +23,7 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 | Live website `/api/leads` | **Unverified** | The endpoint exists and returns 405 to GET. Where it stores leads is unknown. | Get the Sites source and point the form at `/functions/v1/intake` | The Sites export to GitHub failed twice. |
 | Email: Resend | **Available, not connected** | [Resend send-email API](https://resend.com/docs/api-reference/emails/send-email), checked 2026-10-28. It supports `Idempotency-Key` (24h retention). | Create an account, verify the sender domain in Cloudflare, set secrets | No account, key or verified domain. Notifications currently use the **dev adapter**, which logs and doesn't deliver. |
 | Domain `nesthealthstaff.com` | **Verified working** | Checked 2026-10-28: Cloudflare is the registrar and nameservers (`kellen`/`raphaela.ns.cloudflare.com`). The apex and `www` (CNAME `custom-domains.chatgpt.site`) both return `200` over valid HTTPS and serve the Sites frontend; `/api/leads` returns `405` to GET. | Optionally redirect `www` to the apex, so there's one canonical host | n/a |
-| Subdomains `staff.`, `employers.`, `ward.` | **Not live** | Checked 2026-10-28: none of the three has a DNS record. They are planned hosts, already used in email links, CORS and the auth docs. | Choose hosting for the portals, then add a DNS record and a custom-domain binding for each | The portal frontends don't exist yet, and no hosting is chosen |
+| Subdomains `staff.`, `employers.`, `ward.` | **Not live** | Checked 2026-10-28: none of the three has a DNS record. Hosting is decided: Cloudflare Workers. `ward.` is scaffolded with a custom-domain route that creates its DNS record on deploy. | Deploy `ward` (DEPLOYMENT.md), then build `staff.` and `employers.` the same way | Cloudflare access to deploy, and the hosted Supabase setup |
 | NurseRecruiter.com: **jobs in** | **Unverified (not offered)** | The [API docs](https://api.nurserecruiter.com/) (checked 2026-10-28) document only `GET /v1/candidates` and `GET /v1/resume/{id}`. There's no jobs endpoint or job feed. The site lets employers *post* jobs there. | Ask NurseRecruiter whether a job feed or partner syndication exists | No documented route |
 | NurseRecruiter.com: candidates in | **Access required** | The same docs describe Bearer-token auth, issued "once your integration is enabled". Up to 100 candidates per page, filterable by acquisition date. Rate limits and webhooks aren't documented. | Needs an employer account with the integration enabled. Importing resumes also needs phase 4 private document storage. | No account or token |
 | SMS: Twilio | **Deferred** | n/a | The outbox `channel` column can take SMS later | n/a |
@@ -78,7 +78,6 @@ The "Test results" section below records whether each test has actually run and 
 - **Single agency or multi-agency.** This is still undecided. The schema separates organizations either way, and nothing assumes billing or self-signup.
 - **Inquiry retention period**, and how a person can ask for deletion.
 - **Which address receives staff alerts:** the `intake_notification_email` on the production organization.
-- **Where the portal frontends are hosted:** `staff.`, `employers.` and `ward.`.
 
 ## Test results
 

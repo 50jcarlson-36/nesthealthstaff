@@ -8,7 +8,9 @@
     "functions:serve": "supabase functions serve --env-file supabase/functions/.env.local",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ward:seed": "node scripts/dev-ward-seed.mjs",
+    "ward:dev": "npm run dev --prefix apps/ward"
   },
   "devDependencies": {
     "@supabase/supabase-js": "2.118.0",
