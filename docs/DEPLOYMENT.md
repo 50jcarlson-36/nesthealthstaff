@@ -70,10 +70,21 @@ Hostnames do not grant access; RLS does. Someone who signs in on any portal gets
 
 ## Subdomains (DNS and hosting)
 
-**Not done.** The apex `nesthealthstaff.com` does not resolve yet (checked 2026-10-27). To finish:
+Checked 2026-10-28:
 
-1. Activate the zone in Cloudflare, so the apex resolves and serves HTTPS.
-2. Decide where each portal is hosted. Then, for `staff`, `employers` and `ward`, add DNS records and custom-domain bindings with that host. None of the portal frontends exist yet.
+| Host | DNS | Serves |
+|---|---|---|
+| `nesthealthstaff.com` | Cloudflare (registrar and nameservers) | Sites frontend, HTTPS `200` |
+| `www.nesthealthstaff.com` | CNAME `custom-domains.chatgpt.site` | Same site, HTTPS `200`. It doesn't redirect to the apex. |
+| `staff.` / `employers.` / `ward.` | **No records** | Nothing yet |
+
+To bring up a portal subdomain:
+
+1. Deploy the portal frontend to its host. None exist yet.
+2. In Cloudflare DNS, add the record the host asks for, usually a CNAME such as `staff → <host target>`. Then add the custom domain on the host side, so it issues the certificate.
+3. Check it with `curl -I https://staff.nesthealthstaff.com`. Only then mark it live in STATUS.md.
+
+Don't point a portal subdomain at the marketing site as a placeholder. Auth emails and staff alerts already link to these hosts, so a wrong target would send people to the wrong page.
 
 ## Email (Resend)
 
