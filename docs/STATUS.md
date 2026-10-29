@@ -16,7 +16,7 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 
 | Connection | Status | Evidence / source | Next action | Blocker |
 |---|---|---|---|---|
-| Supabase database (hosted `fugzapgjowwwqgymcdbl`) | **Access required** | The API responded on 2026-10-27. A read-only MCP config is committed. | Authenticate the MCP, inspect the existing schema, then get approval to push migrations | The owner must authenticate. The hosted schema hasn't been inspected. |
+| Supabase database (hosted `fugzapgjowwwqgymcdbl`) | **Available, not connected** | Inspected read-only on 2026-10-28 with the Supabase CLI, which is signed in to an account that can see the project ("50jcarlson-36's Project", created 2026-10-28). `migration list` shows no remote migrations. A schema dump of `public` and `private` holds only Supabase's default grants: no tables, functions or `private` schema. `functions list` is empty. `db push --dry-run` would apply exactly the six local migrations and no seed data. | Push the migrations, create the production organization, set function secrets and deploy the functions (DEPLOYMENT.md, steps 2–5) | Nothing has been applied. Pushing to production needs an explicit go-ahead in this session, or the owner runs the commands. |
 | Supabase local stack | See the test results below | `supabase start` on ports 553xx | n/a | n/a |
 | Supabase Auth | **Available, not connected** | Configured locally only | Set the production Site URL and redirect URLs (DEPLOYMENT.md) | Hosted access |
 | Supabase Storage (private documents) | **Deferred** to phase 4 | n/a | n/a | n/a |

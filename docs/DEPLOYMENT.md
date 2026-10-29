@@ -17,7 +17,7 @@ The integration tests refuse to run unless `supabase status` reports a loopback 
 
 ## Deploying to the hosted project (`fugzapgjowwwqgymcdbl`)
 
-**Not done yet.** Each step below needs the owner's approval. The hosted schema also has to be inspected first, so these migrations don't collide with anything already there.
+**Not done yet.** Each step below needs the owner's approval. Step 1 was done on 2026-10-28: the hosted database was empty, so the migrations don't collide with anything (see STATUS.md).
 
 1. **Inspect** the hosted project: tables, policies, functions, storage buckets and auth settings. Use the read-only Supabase MCP in `.mcp.json`, or `supabase db diff --linked`.
 2. **Link and push migrations:** `npx supabase link --project-ref fugzapgjowwwqgymcdbl`, then `npx supabase db push`. `db push` applies migrations only; it does not load `seed.sql`.
