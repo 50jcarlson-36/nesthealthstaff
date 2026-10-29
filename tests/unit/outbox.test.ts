@@ -65,6 +65,11 @@ describe("ResendEmailAdapter", () => {
     expect(ok).toEqual({ ok: true, provider: "resend", messageId: "msg_1" });
     expect((calls[0].headers as Record<string, string>)["Idempotency-Key"]).toBe("row-id-123");
 
+    const withReplyTo = await new ResendEmailAdapter("k", "f", respond(200, "{}") as typeof fetch, "hello@example.com").send(email);
+    expect(withReplyTo.ok).toBe(true);
+    expect(JSON.parse(String(calls.at(-1)!.body)).reply_to).toBe("hello@example.com");
+    expect(JSON.parse(String(calls[0].body))).not.toHaveProperty("reply_to");
+
     const throttled = await new ResendEmailAdapter("k", "f", respond(429, "slow down") as typeof fetch).send(email);
     expect(throttled).toMatchObject({ ok: false, retryable: true });
 

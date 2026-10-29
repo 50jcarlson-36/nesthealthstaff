@@ -50,6 +50,8 @@ export class ResendEmailAdapter implements EmailAdapter {
     private readonly apiKey: string,
     private readonly from: string,
     private readonly fetchImpl: typeof fetch = fetch,
+    // The sending subdomain has no inbox, so replies go to a real mailbox.
+    private readonly replyTo: string | null = null,
   ) {}
 
   async send(email: OutgoingEmail): Promise<SendResult> {
@@ -68,6 +70,7 @@ export class ResendEmailAdapter implements EmailAdapter {
           subject: email.subject,
           text: email.text,
           html: email.html,
+          ...(this.replyTo ? { reply_to: this.replyTo } : {}),
         }),
       });
     } catch (error) {
@@ -97,7 +100,7 @@ export function emailAdapterFromEnv(env: (name: string) => string | undefined): 
     const apiKey = env("RESEND_API_KEY");
     const from = env("EMAIL_FROM");
     if (!apiKey || !from) throw new Error("EMAIL_PROVIDER=resend requires RESEND_API_KEY and EMAIL_FROM");
-    return new ResendEmailAdapter(apiKey, from);
+    return new ResendEmailAdapter(apiKey, from, fetch, env("EMAIL_REPLY_TO") || null);
   }
   throw new Error(`Unsupported EMAIL_PROVIDER: ${provider}`);
 }
