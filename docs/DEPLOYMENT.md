@@ -73,7 +73,13 @@ Set these in Dashboard → Authentication → URL Configuration:
 
 Hostnames do not grant access; RLS does. Someone who signs in on any portal gets only what their memberships allow.
 
-**Public signups.** Ward never creates accounts: staff logins are created by the `staff-invite` function, which works whether or not signups are allowed. The hosted project still allows public email signups (checked 2026-10-29), so anyone can create a login through the Auth API. It gives them no access, but turning signups off (`[auth] enable_signup = false` and `[auth.email] enable_signup = false`, pushed with `config push`) removes that. Do this before the clinician portal exists only if that portal will also create its accounts server-side.
+**Public signups are off** (since 2026-10-29). Ward never creates accounts: staff logins are created by the `staff-invite` function through the admin API, which works with signups off. A future clinician portal that lets people register will need signups back on, or its own server-side account creation.
+
+**Trap: only `[auth] enable_signup` turns signups off.** In the CLI config, `[auth.email] enable_signup` is the on/off switch for the whole Email provider. Setting it to `false` disables magic-link sign-in for everyone, existing staff included (`email_provider_disabled`). That happened briefly on 2026-10-29 and was reverted. Keep it `true`.
+
+**Auth emails go through Resend SMTP** (since 2026-10-29): `smtp.resend.com:465`, user `resend`, from `Nest Health Staff <no-reply@nesthealthstaff.com>`, using a sending-only Resend key named `supabase-auth-smtp`, separate from the outbox key. The Auth email limit is 30 an hour (the built-in sender allowed 2).
+
+To change these settings, pull the production config into a scratch folder as described below. The SMTP password is required for `config diff` and `config push` to read the file: write it as `pass = "env(RESEND_SMTP_KEY)"` and supply the key only through that variable, from a file the owner saves. Never put it in the file or in chat. Without it, the CLI fails to read the config, and its output can look like "0 differences".
 
 ## Subdomains (DNS and hosting)
 
