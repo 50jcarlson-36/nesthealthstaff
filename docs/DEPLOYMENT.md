@@ -9,7 +9,7 @@ npm install
 npm run db:start            # local Postgres, Auth, Storage, Edge Runtime, Studio (http://127.0.0.1:55323)
 npm run db:reset            # apply supabase/migrations + supabase/seed.sql (synthetic data only)
 cp supabase/functions/.env.example supabase/functions/.env.local   # then fill both secrets
-npm run functions:serve     # intake, apply and process-outbox at http://127.0.0.1:55321/functions/v1/*
+npm run functions:serve     # intake, apply, process-outbox and staff-invite at http://127.0.0.1:55321/functions/v1/*
 npm test                    # unit tests + integration tests against the local stack
 ```
 
@@ -45,7 +45,7 @@ STATUS.md has the verification results. The CLI can run these steps from this re
      EMAIL_PROVIDER=dev
    ```
    Keep `EMAIL_PROVIDER=dev` until Resend is set up (see below).
-5. **Deploy functions:** `npx supabase functions deploy intake apply process-outbox`. `config.toml` already disables JWT verification for all three; each function does its own checks. `apply` uses the same `INTAKE_ORGANIZATION_SLUG`, `INTAKE_IP_HASH_SECRET` and `ALLOWED_ORIGINS` as `intake`.
+5. **Deploy functions:** `npx supabase functions deploy intake apply process-outbox staff-invite`. `config.toml` already disables JWT verification for all four; each function does its own checks (`staff-invite` identifies the caller with `auth.getUser`). `staff-invite` accepts requests only from `ADMIN_PORTAL_URL`, which defaults to `https://ward.nesthealthstaff.com`. `apply` uses the same `INTAKE_ORGANIZATION_SLUG`, `INTAKE_IP_HASH_SECRET` and `ALLOWED_ORIGINS` as `intake`.
 6. **Schedule the outbox worker** with `pg_cron` and `pg_net` (enable both extensions in the dashboard). Store the secret in Vault rather than in the job text:
    ```sql
    select vault.create_secret('<OUTBOX_PROCESSOR_SECRET>', 'outbox_processor_secret');
@@ -72,6 +72,8 @@ Set these in Dashboard → Authentication → URL Configuration:
   - `https://ward.nesthealthstaff.com/**` (agency back office)
 
 Hostnames do not grant access; RLS does. Someone who signs in on any portal gets only what their memberships allow.
+
+**Public signups.** Ward never creates accounts: staff logins are created by the `staff-invite` function, which works whether or not signups are allowed. The hosted project still allows public email signups (checked 2026-10-29), so anyone can create a login through the Auth API. It gives them no access, but turning signups off (`[auth] enable_signup = false` and `[auth.email] enable_signup = false`, pushed with `config push`) removes that. Do this before the clinician portal exists only if that portal will also create its accounts server-side.
 
 ## Subdomains (DNS and hosting)
 

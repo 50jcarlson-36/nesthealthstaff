@@ -74,9 +74,25 @@ check "apply from disallowed origin" 403 "$(apply "https://evil.example" "$appli
 check "apply with form encoding" 415 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X POST "$BASE/apply" -H "Origin: $ORIGIN" -d 'name=x')"
 check "apply GET not allowed" 405 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' "$BASE/apply")"
 
+# --- staff-invite --------------------------------------------------------------
+# Only ward may call it, and only with a session; the signed-in cases are in
+# tests/integration/staff.test.ts.
+WARD="${WARD_ORIGIN:-http://127.0.0.1:3003}"
+invite() { # origin [authorization]
+  curl -s -m 120 -o /tmp/nhs-smoke-body -w '%{http_code}' -X POST "$BASE/staff-invite" \
+    -H "Origin: $1" -H 'Content-Type: application/json' ${2:+-H "Authorization: $2"} \
+    -d '{"organization_id":"00000000-0000-4000-8000-000000000000","email":"smoke-invite@example.com","role":"recruiter"}'
+}
+check "invite preflight from ward" 204 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X OPTIONS "$BASE/staff-invite" -H "Origin: $WARD")"
+check "invite from the public site" 403 "$(invite "$ORIGIN")"
+check "invite without a session" 401 "$(invite "$WARD")"
+check "invite with a bad token" 401 "$(invite "$WARD" "Bearer not-a-token")"
+check "invite GET not allowed" 405 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' "$BASE/staff-invite")"
+
 check "outbox without secret" 401 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X POST "$BASE/process-outbox")"
 check "outbox with secret" 200 "$(curl -s -m 120 -o /tmp/nhs-smoke-body -w '%{http_code}' -X POST "$BASE/process-outbox" -H "x-outbox-secret: $SECRET")"
 echo "outbox summary: $(cat /tmp/nhs-smoke-body)"
+check "outbox sent without failures" 0 "$(sed -E 's/.*"failed":([0-9]+).*/\1/' /tmp/nhs-smoke-body)"
 
 rm -f /tmp/nhs-smoke-body
 exit $fail

@@ -2,12 +2,16 @@
 // checks, CORS, JSON replies, body limits and client-IP hashing. Uses only web
 // platform APIs.
 
-export function corsHeaders(allowedOrigins: Set<string>, origin: string | null): Record<string, string> {
+export function corsHeaders(
+  allowedOrigins: Set<string>,
+  origin: string | null,
+  allowHeaders = "Content-Type, Idempotency-Key",
+): Record<string, string> {
   if (!origin || !allowedOrigins.has(origin)) return {};
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Idempotency-Key",
+    "Access-Control-Allow-Headers": allowHeaders,
     "Access-Control-Max-Age": "600",
     Vary: "Origin",
   };
@@ -19,10 +23,15 @@ export function jsonReply(
   body: unknown,
   origin: string | null,
   requestId: string,
+  allowHeaders?: string,
 ): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", "X-Request-Id": requestId, ...corsHeaders(allowedOrigins, origin) },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Request-Id": requestId,
+      ...corsHeaders(allowedOrigins, origin, allowHeaders),
+    },
   });
 }
 

@@ -199,3 +199,47 @@ Each saved application appears in ward under its job with stage `applied`. Two e
 - `staff_new_application_alert` goes to the agency's `intake_notification_email`, if one is set, and links to the job in ward.
 
 Neither email contains applicant details, and neither contains internal job fields. A duplicate, a closed or unknown job, or a rate-limited request queues nothing. A candidate a recruiter puts forward from an inquiry gets no email, because they didn't apply themselves. Outbox rows carry `application_id`.
+
+## Staff invitations and team management
+
+An agency admin invites someone from ward's Team page. The invitation email holds no sign-in token: it sends the person to ward, where they ask for an ordinary magic link for that address. Access is granted only after that sign-in, when ward calls `accept_staff_invitations`. That function matches pending invitations against the signed-in user's own confirmed email in `auth.users`, never an address the client sends.
+
+### `POST /functions/v1/staff-invite`
+
+Called by ward with the admin's session (`supabase.functions.invoke`). Only the ward origin (`ADMIN_PORTAL_URL`) is allowed. The function identifies the caller with `auth.getUser`, then calls `invite_staff` (service role only), which checks they're an admin of the organization before writing anything. Only then does it create the invitee's login, confirmed and with no password, so ward's sign-in, which never creates accounts, can email them a link. An existing login is reused.
+
+Body (JSON, at most 4 KB):
+
+| Field | Required | Notes |
+|---|---|---|
+| `organization_id` | yes | UUID of an agency the caller is an admin of |
+| `email` | yes | Lowercased and trimmed |
+| `full_name` | no | Up to 160 characters. Copied to the person's profile on acceptance if they have no name yet. |
+| `role` | yes | `admin` or `recruiter` |
+
+| Status | Body | Meaning |
+|---|---|---|
+| 201 | `{"ok":true,"status":"created","invitation_id","expires_at"}` | Invitation saved and email queued |
+| 200 | `{"ok":true,"status":"resent",...}` | An open invitation for that address was updated (role, name), extended to 14 days and sent again. At most five sends. |
+| 400 | `{"error": "<message safe to show>"}` | Invalid input, already on staff, or sent five times |
+| 401 | `{"error": ...}` | No session or an invalid one |
+| 403 | `{"error": ...}` | Not an admin of that agency, or a request from another origin |
+| 405, 413, 415 | `{"error": ...}` | Wrong method, body too large, not JSON |
+| 502 | `{"error": ...}` | The invitation is saved but the login couldn't be created. Sending it again retries. |
+
+### Database functions
+
+Called with the admin's own session through PostgREST, except `invite_staff`.
+
+| Function | Who | Arguments | Returns |
+|---|---|---|---|
+| `invite_staff` | service role (the function above) | `p_actor_id`, `p_organization_id`, `p_email`, `p_full_name`, `p_role` | `{status, invitation_id, email, expires_at}` |
+| `revoke_staff_invitation` | admin | `p_invitation_id` | `{id}`. Also cancels the invitation email if it hasn't been sent. |
+| `accept_staff_invitations` | any signed-in user | none | `{accepted}`: how many invitations became memberships. An existing membership keeps its role. |
+| `organization_members` | admin | `p_organization_id` | rows of `{user_id, full_name, email, role, joined_at, last_sign_in_at}` |
+| `change_staff_role` | admin | `p_organization_id`, `p_user_id`, `p_role` | `{user_id, role}`. Refused if it would leave the agency with no admin. |
+| `remove_staff_member` | admin | `p_organization_id`, `p_user_id` | `{user_id, unassigned_inquiries}`. Access ends at once; their inquiries in that agency are unassigned (logged as `assigned` events with reason `staff_removed`). Admins can't remove themselves. The login itself is kept. |
+
+Errors: `PT400` invalid input (message safe to show), `PT403` not an admin (from `invite_staff`), `PT404` not found or another agency's. Admins can read their agency's `staff_invitations`; recruiters can't. Every invitation, acceptance, revocation, role change and removal writes an `audit_events` row.
+
+The `staff_invitation` email names the agency, the role, the inviter and the expiry date, and links to ward's sign-in page.

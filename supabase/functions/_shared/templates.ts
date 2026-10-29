@@ -121,6 +121,29 @@ export function renderTemplate(
       };
     }
 
+    case "staff_invitation": {
+      // No sign-in token: the link opens ward's ordinary sign-in, and access
+      // is granted only after a magic link to this same address.
+      const role = str(data, "role", "recruiter") === "admin" ? "an admin" : "a recruiter";
+      const inviter = str(data, "inviter_name", "");
+      const expires = str(data, "expires_at", "");
+      const expiresOn = expires
+        ? new Date(expires).toLocaleDateString("en-US", { dateStyle: "long", timeZone: "UTC" })
+        : "";
+      const lines = [
+        `${inviter ? `${inviter} has invited you` : "You've been invited"} to join ${agency} in Ward, its recruiting workspace, as ${role}.`,
+        "To accept, open Ward and sign in with this email address. We'll email you a sign-in link; there's no password.",
+        ...(expiresOn ? [`The invitation expires on ${expiresOn}.`] : []),
+        "If you weren't expecting this, you can ignore this email.",
+      ];
+      const href = `${portals.adminPortal}/`;
+      return {
+        subject: `You're invited to ${oneLine(agency)} on Ward`,
+        text: `${lines.join("\n\n")}\n\n${href}`,
+        html: layout(lines, { href, label: "Open Ward" }),
+      };
+    }
+
     default:
       throw new Error(`Unknown notification template: ${template}`);
   }

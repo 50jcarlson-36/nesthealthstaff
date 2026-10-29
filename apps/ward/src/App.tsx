@@ -14,6 +14,7 @@ import {
   supabase,
 } from "./supabase.ts";
 import { JobDetail, JobList, JobNew } from "./jobs.tsx";
+import { TeamPage } from "./team.tsx";
 import { formatDate, label, Link, type Save, type StaffDirectory, staffName, useSave } from "./shared.tsx";
 
 // --- Routing ---------------------------------------------------------------
@@ -131,10 +132,16 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // An invitation for this address becomes a membership on sign-in. If this
+    // fails, the person sees "No ward access" and it's retried next sign-in.
     supabase
-      .from("organization_memberships")
-      .select("organization_id, role, organizations(name)")
-      .eq("user_id", session.user.id)
+      .rpc("accept_staff_invitations")
+      .then(() =>
+        supabase
+          .from("organization_memberships")
+          .select("organization_id, role, organizations(name)")
+          .eq("user_id", session.user.id)
+      )
       .then(async ({ data, error }) => {
         if (error) return setError("Couldn't load your access. Refresh to try again.");
         const rows = (data ?? []) as unknown as Membership[];
@@ -160,7 +167,7 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
       <Centered>
         <div className="card">
           <h1>No ward access</h1>
-          <p>{session.user.email} isn't a member of any agency. Ask an admin to add you.</p>
+          <p>{session.user.email} isn't a member of any agency. Ask an admin to invite you; if they already did, the invitation may have expired.</p>
           <button onClick={signOut}>Sign out</button>
         </div>
       </Centered>
@@ -169,7 +176,10 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
 
   const inquiryMatch = path.match(/^\/inquiries\/([0-9a-f-]{36})$/i);
   const jobMatch = path.match(/^\/jobs\/([0-9a-f-]{36})$/i);
-  const section = path.startsWith("/jobs") ? "jobs" : "inquiries";
+  const adminOf = memberships
+    .filter((m) => m.role === "admin")
+    .map((m) => ({ id: m.organization_id, name: m.organizations?.name ?? "Your agency" }));
+  const section = path.startsWith("/jobs") ? "jobs" : path === "/team" && adminOf.length > 0 ? "team" : "inquiries";
 
   return (
     <>
@@ -180,6 +190,7 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
         <nav className="tabs">
           <Link to="/" navigate={navigate}><span aria-current={section === "inquiries" ? "page" : undefined}>Inquiries</span></Link>
           <Link to="/jobs" navigate={navigate}><span aria-current={section === "jobs" ? "page" : undefined}>Jobs</span></Link>
+          {adminOf.length > 0 && <Link to="/team" navigate={navigate}><span aria-current={section === "team" ? "page" : undefined}>Team</span></Link>}
         </nav>
         <span className="muted">{memberships.map((m) => `${m.organizations?.name ?? "Agency"} · ${m.role}`).join(", ")}</span>
         <span className="spacer" />
@@ -197,6 +208,8 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
           <JobNew navigate={navigate} memberships={memberships} />
         ) : path === "/jobs" ? (
           <JobList navigate={navigate} />
+        ) : path === "/team" && adminOf.length > 0 ? (
+          <TeamPage organizations={adminOf} userId={session.user.id} />
         ) : (
           <p>Page not found. <Link to="/" navigate={navigate}>Back to inquiries</Link></p>
         )}

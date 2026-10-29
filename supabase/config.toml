@@ -431,6 +431,10 @@ verify_jwt = false
 [functions.apply]
 verify_jwt = false
 
+# Authenticates the caller itself with auth.getUser, like the other functions.
+[functions.staff-invite]
+verify_jwt = false
+
 # Called by the scheduler with OUTBOX_PROCESSOR_SECRET; anon JWTs must not work.
 [functions.process-outbox]
 verify_jwt = false
