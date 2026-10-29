@@ -7,7 +7,7 @@ Supabase backend for Nest Health Staff, a travel-nursing staffing service that c
 | `nesthealthstaff.com` | Public website. The existing Sites frontend; its source isn't in this repo yet. |
 | `staff.nesthealthstaff.com` | Clinician portal: applicants and their own profiles (planned) |
 | `employers.nesthealthstaff.com` | Facility portal: hospitals managing staff and approving applicants (planned) |
-| `ward.nesthealthstaff.com` | Agency back office: admins and recruiters. Scaffolded in `apps/ward`; not deployed. |
+| `ward.nesthealthstaff.com` | Agency back office: admins and recruiters. Built in `apps/ward`; deployed to Cloudflare Workers on 2026-10-28. No staff accounts exist yet. |
 
 ## What's here
 

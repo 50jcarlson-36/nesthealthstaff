@@ -94,7 +94,7 @@ Don't point a portal subdomain at the marketing site as a placeholder. Auth emai
 
 ## Ward portal (Cloudflare Workers)
 
-**Not deployed.** `apps/ward` is a static React app served by Workers static assets; there is no Worker script. `wrangler.jsonc` binds the custom domain `ward.nesthealthstaff.com`, so the first deploy creates its DNS record and certificate in the Cloudflare zone.
+**Deployed on 2026-10-28** (Worker `nest-ward`; see STATUS.md). `apps/ward` is a static React app served by Workers static assets; there is no Worker script. `wrangler.jsonc` binds the custom domain `ward.nesthealthstaff.com`, so the first deploy creates its DNS record and certificate in the Cloudflare zone.
 
 1. Finish the hosted Supabase steps above, so production has the ward redirect URL and at least one staff membership.
 2. Create `apps/ward/.env.production` with the hosted project's URL and **publishable** key. Never use a secret or service-role key here.
