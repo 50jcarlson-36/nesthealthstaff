@@ -83,9 +83,12 @@ function SignIn() {
     // Ward accounts are created by an admin, never here. The response is the
     // same whether or not the address has an account, so this form can't be
     // used to discover who works at the agency.
+    // The trailing slash matters: the hosted allow list holds
+    // "https://ward.nesthealthstaff.com/**", which a bare origin doesn't match,
+    // and Supabase then silently sends the link to the main site instead.
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { shouldCreateUser: false, emailRedirectTo: window.location.origin },
+      options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}/` },
     });
     const benign = !error || error.code === "otp_disabled" || /signups not allowed/i.test(error.message);
     setState(benign ? "sent" : "error");
