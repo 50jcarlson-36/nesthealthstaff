@@ -44,6 +44,11 @@ export async function processOutbox(
   for (const row of rows) {
     let completion: Completion;
     try {
+      // Zoho has no documented send idempotency. An expired send lease must
+      // be reconciled manually instead of risking a duplicate email.
+      if (adapter.provider === "zoho" && row.attempts > 1) {
+        throw new Error("Zoho retry requires provider reconciliation before resending");
+      }
       const email = renderTemplate(row.template, row.template_data, portals);
       const result = await adapter.send({ idempotencyKey: row.id, to: row.recipient, ...email });
       completion = result.ok

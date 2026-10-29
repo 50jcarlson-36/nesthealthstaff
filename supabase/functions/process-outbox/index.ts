@@ -43,6 +43,12 @@ Deno.serve(async (request) => {
   let adapter;
   try {
     adapter = emailAdapterFromEnv(env);
+    // Never consume a hosted notification with the non-delivering adapter.
+    // Local functions see an internal URL (http://kong:8000), so check for the
+    // hosted domain rather than for localhost.
+    if (adapter.provider === "dev" && /\.supabase\.co(\/|$)/.test(env("SUPABASE_URL") ?? "")) {
+      throw new Error("EMAIL_PROVIDER=dev is not allowed on a hosted project");
+    }
   } catch (error) {
     console.error(JSON.stringify({ fn: "process-outbox", outcome: "misconfigured", detail: String(error) }));
     return json(503, { error: "Email provider is not configured." });

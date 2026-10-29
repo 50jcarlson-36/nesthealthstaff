@@ -78,13 +78,13 @@ Deno.serve(async (request) => {
     return reply(500, { error: "We could not save your inquiry. Please try again." }, origin, requestId);
   }
 
-  const status = (data as { status: string }).status;
+  const { status, inquiry_id: reference } = data as { status: string; inquiry_id?: string };
   log(requestId, status);
   switch (status) {
     case "created":
-      return reply(201, { ok: true }, origin, requestId);
+      return reply(201, { ok: true, reference }, origin, requestId);
     case "duplicate":
-      return reply(200, { ok: true }, origin, requestId);
+      return reply(200, { ok: true, reference }, origin, requestId);
     case "rate_limited":
       return reply(429, { error: "We've received several submissions. Please try again later." }, origin, requestId);
     default:

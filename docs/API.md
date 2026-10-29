@@ -39,8 +39,8 @@ The live form treats any 2xx response as success and shows `error` on failure, s
 
 | Status | Body | When |
 |---|---|---|
-| `201` | `{"ok":true}` | Inquiry saved and notifications queued. |
-| `200` | `{"ok":true}` | Duplicate: same `Idempotency-Key`, or an identical submission within 30 minutes. Also returned for honeypot hits. |
+| `201` | `{"ok":true,"reference":"<uuid>"}` | Inquiry saved and notifications queued. `reference` is the inquiry id, for support conversations. A retry that matches an earlier submission returns `200` with the same `reference`. |
+| `200` | `{"ok":true,"reference":"<uuid>"}` | Duplicate: same `Idempotency-Key`, or an identical submission within 30 minutes. `reference` is the original inquiry. A honeypot hit returns `{"ok":true}` with no reference. |
 | `400` | `{"error":"…"}` | Validation failed. The message names the problem. |
 | `403` | `{"error":"…"}` | Browser `Origin` is not allowed. |
 | `405`, `413`, `415` | `{"error":"…"}` | Wrong method, body too large, or not JSON. |

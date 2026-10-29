@@ -22,7 +22,8 @@ nurse="{\"name\":\"Smoke Test\",\"email\":\"smoke-$RUN@example.com\",\"phone\":\
 
 check "preflight from allowed origin" 204 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X OPTIONS "$BASE/intake" -H "Origin: $ORIGIN")"
 check "nurse submission" 201 "$(post "$ORIGIN" "$nurse" "Idempotency-Key: smoke-$RUN-key")"
-check "response body" '{"ok":true}' "$(cat /tmp/nhs-smoke-body)"
+# The body carries the new inquiry's id as "reference".
+check "response body" '{"ok":true,"reference":"<uuid>"}' "$(sed -E 's/"[0-9a-f]{8}-[0-9a-f-]{27}"/"<uuid>"/' /tmp/nhs-smoke-body)"
 check "retry with same key" 200 "$(post "$ORIGIN" "$nurse" "Idempotency-Key: smoke-$RUN-key")"
 check "disallowed origin" 403 "$(post "https://evil.example" "$nurse")"
 bot='{"website":"http://spam.example","email":"bot@example.com"}'
