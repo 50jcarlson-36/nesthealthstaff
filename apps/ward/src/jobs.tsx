@@ -1,3 +1,4 @@
+import { EmptyState } from "./brand.tsx";
 // Jobs entered by recruiters, and the applications against them. Public and
 // internal fields are edited side by side but stored apart; only the public
 // ones ever reach the job board.
@@ -66,8 +67,9 @@ export function JobList({ navigate }: { navigate: Navigate }) {
 
   return (
     <section>
+      <div className="page-intro"><div><p className="eyebrow">MAKE ROOM FOR WHAT’S NEXT</p><h1>Good work. A better fit.</h1><p className="muted">Manage your openings and the people moving toward them.</p></div></div>
       <div className="toolbar">
-        <h1>Jobs</h1>
+        <h2>Opportunities</h2>
         <label>
           Status{" "}
           <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
@@ -82,7 +84,7 @@ export function JobList({ navigate }: { navigate: Navigate }) {
       </div>
       {error && <p role="alert" className="error">{error}</p>}
       {!rows && !error && <p className="muted">Loading…</p>}
-      {rows && rows.length === 0 && <p className="muted">No jobs match.</p>}
+      {rows && rows.length === 0 && <EmptyState title="Your next opportunity starts here." description="Create an authorized job order to begin matching nurses with their next chapter."><button onClick={()=>navigate("/jobs/new")}>Create an opportunity</button></EmptyState>}
       {rows && rows.length > 0 && (
         <table>
           <thead>

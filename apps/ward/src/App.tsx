@@ -13,6 +13,7 @@ import {
   type StaffMember,
   supabase,
 } from "./supabase.ts";
+import { Brand, EmptyState } from "./brand.tsx";
 import { JobDetail, JobList, JobNew } from "./jobs.tsx";
 import { TeamPage } from "./team.tsx";
 import { formatDate, label, Link, type Save, type StaffDirectory, staffName, useSave } from "./shared.tsx";
@@ -96,31 +97,46 @@ function SignIn() {
   }
 
   return (
-    <Centered>
-      <form className="card signin" onSubmit={submit}>
-        <h1>Ward</h1>
-        <p className="muted">Nest Health Staff back office</p>
-        {state === "sent" ? (
-          <p role="status">If that address has ward access, a sign-in link is on its way. It expires in one hour.</p>
-        ) : (
-          <>
-            <label htmlFor="email">Work email</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <button type="submit" disabled={state === "sending"}>
-              {state === "sending" ? "Sending…" : "Email me a sign-in link"}
-            </button>
-            {state === "error" && <p role="alert" className="error">Couldn't send the link. Try again in a minute.</p>}
-          </>
-        )}
-      </form>
-    </Centered>
+    <main className="auth-page">
+      <section className="auth-story" aria-label="About Ward">
+        <Brand />
+        <div className="auth-story-copy">
+          <p className="eyebrow">GOOD PEOPLE. GREAT POSSIBILITIES.</p>
+          <h1>Care starts with<br />a connection.</h1>
+          <p>Your people, your opportunities, and every next step. Together in Ward.</p>
+          <div className="connection-art" aria-hidden="true">
+            <div className="orbit orbit-one" /><div className="orbit orbit-two" />
+            <div className="art-center"><svg viewBox="0 0 48 48"><path d="M24 36S7 26 7 16a9 9 0 0 1 17-4 9 9 0 0 1 17 4c0 10-17 20-17 20Z" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M13 23h7l3-7 4 13 3-6h6" fill="none" stroke="currentColor" strokeWidth="2"/></svg></div>
+            <div className="art-chip chip-people"><span className="chip-icon">◎</span><div><strong>People first</strong><small>Every conversation matters</small></div></div>
+            <div className="art-chip chip-opportunity"><span className="chip-icon">↗</span><div><strong>Next chapters</strong><small>Make room for possibility</small></div></div>
+            <span className="art-dot dot-one" /><span className="art-dot dot-two" />
+          </div>
+        </div>
+        <p className="auth-story-footer">A new assignment. A place to belong.</p>
+      </section>
+      <section className="auth-panel" aria-label="Sign in to Ward">
+        <div className="auth-panel-top"><span className="ward-wordmark">ward<span> by Nest</span></span><span className="private-badge">● Staff workspace</span></div>
+        <form className="signin" onSubmit={submit}>
+          <span className="signin-symbol" aria-hidden="true">↗</span>
+          <p className="eyebrow">WELCOME TO WARD</p>
+          <h2>Your next connection<br />starts here.</h2>
+          <p className="muted">Sign in to your recruiting workspace.</p>
+          {state === "sent" ? (
+            <div className="signin-notice" role="status"><strong>Check your inbox</strong><p>If that address has Ward access, a sign-in link is on its way. It expires in one hour.</p></div>
+          ) : (
+            <div className="signin-fields">
+              <label htmlFor="email">Work email</label>
+              <input id="email" type="email" autoComplete="email" placeholder="you@nesthealthstaff.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <button type="submit" disabled={state === "sending"}>{state === "sending" ? "Sending…" : <>Email me a sign-in link <span aria-hidden="true">↗</span></>}</button>
+              {state === "error" && <p role="alert" className="error">Couldn't send the link. Try again in a minute.</p>}
+              <p className="signin-help">No password to remember. Just a link to your inbox.</p>
+            </div>
+          )}
+          <div className="signin-support"><span>Need access to Ward?</span><p>Ask your team administrator for an invitation.</p></div>
+        </form>
+        <footer className="auth-panel-footer"><span>© {new Date().getFullYear()} Nest Staffing, LLC</span><a href="https://nesthealthstaff.com">Visit Nest website ↗</a></footer>
+      </section>
+    </main>
   );
 }
 
@@ -183,21 +199,21 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
 
   return (
     <>
-      <header className="topbar">
-        <Link to="/" navigate={navigate}>
-          <strong>Ward</strong>
-        </Link>
-        <nav className="tabs">
-          <Link to="/" navigate={navigate}><span aria-current={section === "inquiries" ? "page" : undefined}>Inquiries</span></Link>
-          <Link to="/jobs" navigate={navigate}><span aria-current={section === "jobs" ? "page" : undefined}>Jobs</span></Link>
-          {adminOf.length > 0 && <Link to="/team" navigate={navigate}><span aria-current={section === "team" ? "page" : undefined}>Team</span></Link>}
+      <a className="skip-link" href="#workspace">Skip to workspace</a>
+      <aside className="sidebar">
+        <Brand/>
+        <div className="workspace-label">WARD <span>Recruiting workspace</span></div>
+        <p className="nav-label">WORKSPACE</p>
+        <nav className="tabs" aria-label="Workspace navigation">
+          <Link to="/" navigate={navigate}><span aria-current={section === "inquiries" ? "page" : undefined}>◉ <b>Inquiries</b><i>↗</i></span></Link>
+          <Link to="/jobs" navigate={navigate}><span aria-current={section === "jobs" ? "page" : undefined}>▦ <b>Opportunities</b><i>↗</i></span></Link>
+          {adminOf.length > 0 && <Link to="/team" navigate={navigate}><span aria-current={section === "team" ? "page" : undefined}>◎ <b>Team</b><i>↗</i></span></Link>}
         </nav>
-        <span className="muted">{memberships.map((m) => `${m.organizations?.name ?? "Agency"} · ${m.role}`).join(", ")}</span>
-        <span className="spacer" />
-        <span className="muted">{session.user.email}</span>
-        <button className="link" onClick={signOut}>Sign out</button>
-      </header>
-      <main className="page">
+        <div className="sidebar-note"><p className="eyebrow">A PLACE TO BELONG</p><p>Every next chapter starts with a conversation.</p><a href="https://nesthealthstaff.com" target="_blank" rel="noreferrer">Visit Nest website ↗</a></div>
+        <div className="account"><strong>{memberships.map(m=>label(m.role)).join(", ")}</strong><span>{session.user.email}</span><button className="link" onClick={signOut}>Sign out ↗</button></div>
+      </aside>
+      <div className="workspace-body"><header className="topbar"><span>Nest Health Staff <span className="breadcrumb">/ {section === "jobs" ? "Opportunities" : section === "team" ? "Team" : "Inquiries"}</span></span><span className="private-badge">● Private workspace</span></header>
+      <main className="page" id="workspace">
         {inquiryMatch ? (
           <InquiryDetail id={inquiryMatch[1]} navigate={navigate} staff={staff} />
         ) : path === "/" ? (
@@ -213,7 +229,7 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
         ) : (
           <p>Page not found. <Link to="/" navigate={navigate}>Back to inquiries</Link></p>
         )}
-      </main>
+      </main></div>
     </>
   );
 }
@@ -225,11 +241,13 @@ const PAGE_SIZE = 50;
 function InquiryList({ navigate, staff, userId }: { navigate: (to: string) => void; staff: StaffDirectory; userId: string }) {
   const [stage, setStage] = useState<InquiryStage | "open" | "all">("open");
   const [type, setType] = useState<InquiryType | "all">("all");
+  const [search, setSearch] = useState("");
   const [owner, setOwner] = useState<"anyone" | "me" | "unassigned">("anyone");
   const [rows, setRows] = useState<InquirySummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     setRows(null);
     let query = supabase
       .from("inquiries")
@@ -242,18 +260,24 @@ function InquiryList({ navigate, staff, userId }: { navigate: (to: string) => vo
     if (owner === "me") query = query.eq("assigned_recruiter_id", userId);
     else if (owner === "unassigned") query = query.is("assigned_recruiter_id", null);
     query.then(({ data, error }) => {
+      if (!active) return;
       if (error) setError("Couldn't load inquiries.");
       else {
         setError(null);
         setRows(data as InquirySummary[]);
       }
     });
+    return () => { active = false; };
   }, [stage, type, owner, userId]);
 
+  const shown = rows?.filter(r => [r.full_name,r.specialty,r.organization_name,r.preferred_location].some(v=>v?.toLowerCase().includes(search.toLowerCase())));
   return (
     <section>
+      <div className="page-intro"><div><p className="eyebrow">PEOPLE FIRST. EVERY STEP.</p><h1>Your next connection starts here.</h1><p className="muted">A little care today. A better next chapter tomorrow.</p></div></div>
+      <div className="metric-grid">{[["In this view",rows?.length],["New conversations",rows?.filter(r=>r.stage==="new").length],["Assigned to you",rows?.filter(r=>r.assigned_recruiter_id===userId).length],["Ready for an owner",rows?.filter(r=>!r.assigned_recruiter_id).length]].map(([title,value])=><div className="metric" key={title}><span>{title}</span><strong>{value ?? "—"}</strong><small>Current filters · latest 50 inquiries</small></div>)}</div>
+      <div className="section-heading"><div><h2>Inquiry inbox</h2><p className="muted">Nurses and facilities, together in one place.</p></div><span className="stage">{shown?.length ?? "—"} in view</span></div>
       <div className="toolbar">
-        <h1>Inquiries</h1>
+        <label className="search-field">Search this view<input type="search" placeholder="Name, specialty, or location" value={search} onChange={e=>setSearch(e.target.value)}/></label>
         <label>
           Stage{" "}
           <select value={stage} onChange={(e) => setStage(e.target.value as typeof stage)}>
@@ -283,8 +307,8 @@ function InquiryList({ navigate, staff, userId }: { navigate: (to: string) => vo
       </div>
       {error && <p role="alert" className="error">{error}</p>}
       {!rows && !error && <p className="muted">Loading…</p>}
-      {rows && rows.length === 0 && <p className="muted">No inquiries match.</p>}
-      {rows && rows.length > 0 && (
+      {shown && shown.length === 0 && <EmptyState title="Room for the next chapter." description="New nurse and facility inquiries will appear here. Try another filter or open the public inquiry form."><button onClick={()=>{setStage("all");setType("all");setOwner("anyone");setSearch("")}}>View all inquiries</button><a href="https://nesthealthstaff.com/#connect" target="_blank" rel="noreferrer">Open inquiry form ↗</a></EmptyState>}
+      {shown && shown.length > 0 && (
         <table>
           <thead>
             <tr>
@@ -298,7 +322,7 @@ function InquiryList({ navigate, staff, userId }: { navigate: (to: string) => vo
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {shown.map((r) => (
               <tr key={r.id}>
                 <td>{formatDate(r.created_at)}</td>
                 <td><Link to={`/inquiries/${r.id}`} navigate={navigate}>{r.full_name}</Link></td>

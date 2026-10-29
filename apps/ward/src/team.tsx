@@ -46,7 +46,7 @@ async function sendInvitation(organizationId: string, input: InviteInput): Promi
 export function TeamPage({ organizations, userId }: { organizations: { id: string; name: string }[]; userId: string }) {
   return (
     <section>
-      <div className="toolbar"><h1>Team</h1></div>
+      <div className="page-intro"><div><p className="eyebrow">BETTER, TOGETHER</p><h1>Your people behind the people.</h1><p className="muted">Manage your recruiting team and invitations.</p></div></div>
       {organizations.map((org) => (
         <TeamSection key={org.id} org={org} userId={userId} showName={organizations.length > 1} />
       ))}
