@@ -111,7 +111,7 @@ Don't point a portal subdomain at the marketing site as a placeholder. Auth emai
 
 Staff accounts are created by an admin only: the sign-in form uses `shouldCreateUser: false`. To add someone, an admin uses ward's **Team** page (see API.md, "Staff invitations"). The invitee gets an email, signs in at ward with "Email me a sign-in link", and gets access then. Don't use the Supabase dashboard's **Invite**: its link uses the implicit flow, which ward's PKCE sign-in rejects.
 
-While the ward branding changes are uncommitted, deploy ward from a clean copy of the committed code (`git archive HEAD apps/ward`, plus `.env.production`), so unreviewed working-tree edits aren't shipped.
+Deploy ward only from a clean working tree (`git status` shows nothing under `apps/ward`), so unreviewed edits aren't shipped.
 
 To change the hosted Auth URLs without pushing local settings, pull the production config into a scratch folder (`supabase config pull --workdir <dir> --project-ref fugzapgjowwwqgymcdbl`). Edit only the fields you mean to change, run `config diff`, then run `config push` from the same folder. Never push the repo's `supabase/config.toml`: it holds local `127.0.0.1` URLs.
 
