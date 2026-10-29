@@ -101,7 +101,9 @@ Don't point a portal subdomain at the marketing site as a placeholder. Auth emai
 3. `cd apps/ward && npx wrangler login && npm run deploy`. Deploying needs Cloudflare access to the `nesthealthstaff.com` account.
 4. Verify that `curl -I https://ward.nesthealthstaff.com` returns `200` with the `Content-Security-Policy` and `X-Robots-Tag` headers from `public/_headers`. Then sign in with a real staff account.
 
-Staff accounts are invite-only: the sign-in form uses `shouldCreateUser: false`. To add someone, invite them under Dashboard → Authentication, then insert their `organization_memberships` row in the SQL editor. There's no in-app user management yet.
+Staff accounts are created by an admin only: the sign-in form uses `shouldCreateUser: false`. To add someone, create them as a confirmed user (Dashboard → Authentication → Add user, with **Auto confirm** on), then insert their `organization_memberships` row in the SQL editor. They then sign in at ward with "Email me a sign-in link". Don't use **Invite**: its link uses the implicit flow, which ward's PKCE sign-in rejects. There's no in-app user management yet.
+
+To change the hosted Auth URLs without pushing local settings, pull the production config into a scratch folder (`supabase config pull --workdir <dir> --project-ref fugzapgjowwwqgymcdbl`). Edit only the fields you mean to change, run `config diff`, then run `config push` from the same folder. Never push the repo's `supabase/config.toml`: it holds local `127.0.0.1` URLs.
 
 The CSP in `public/_headers` names the hosted project `fugzapgjowwwqgymcdbl`. Update it if the project changes.
 
