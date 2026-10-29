@@ -1,14 +1,25 @@
 # Status report
 
-Last updated 2026-10-28. All data in this repo and its tests is synthetic, using `@example.com` addresses. No production data has been created, read or changed.
+Last updated 2026-10-29, checked against production read-only on that date. Repo and test data is synthetic, using `@example.com` addresses. Production holds only labeled test records addressed to `@nesthealthstaff.com`: 3 inquiries, 7 sent notifications, 1 staff user. No real applicant data exists.
+
+## What's live
+
+| Piece | Where | State |
+|---|---|---|
+| Database | Supabase `fugzapgjowwwqgymcdbl` | All 7 migrations applied. Organization `nest-health-staff`, alerts to `recruiting@nesthealthstaff.com`. |
+| Edge Functions | same project | `intake` v6, `apply` v5, `process-outbox` v7, all `verify_jwt` off. `process-outbox` v7 is deployed from commit `0fa9093`. |
+| Outbox worker | `pg_cron` job `nest-inquiry-notifications` | Runs every minute. In the 24 hours to 2026-10-29 20:10 UTC: 946 runs succeeded, 0 failed, 0 non-`200` responses. |
+| Email | Resend | Sends as `Nest Health Staff <no-reply@nesthealthstaff.com>`, replies to `recruiting@`. All 7 outbox rows are `sent` through Resend. The owner confirmed receipt. |
+| Staff app | `ward.nesthealthstaff.com` (Worker `nest-ward`) | Sign-in verified. 1 user (`50jcarlson@gmail.com`, admin). |
+| Website | `nesthealthstaff.com` (Sites) | Inquiry forms call `intake` (see Integrations). No job board or apply form yet. |
 
 ## Delivery phases
 
 | Phase | State |
 |---|---|
-| 1. Intake: submit → inquiry saved → notifications queued | **Built and tested locally.** Not deployed. The frontend isn't connected yet. |
-| 2. Staff: sign in → review → update pipeline | **Built and tested locally.** Database functions `change_inquiry_stage`, `assign_inquiry`, `add_inquiry_note` and `organization_staff` handle stage changes (a reason is required to close), recruiter assignment (same-agency staff only) and append-only notes. Stage and assignment changes use optimistic concurrency via `version`. `ward.` exposes all of it, and was checked in a browser against the local stack only. The database and ward are deployed (see Integrations), but no staff account exists in production yet. |
-| 3. Recruiting: jobs, applications | **Built and tested locally.** Recruiters enter jobs by hand in `ward.`. Each job is stored in two parts: public fields in `jobs`, and facility, requisition, rates and notes in `job_internal_details`, which only staff can read. The public listing reads only open jobs, through `list_public_jobs`, and only their public columns. Applications go in `job_applications`, from the website via the service-role function `submit_job_application`, or from a recruiter putting forward a clinician inquiry. Pay is internal only until the supplier agreements say otherwise. The public `apply` Edge Function validates applications and calls `submit_job_application`. New website applications queue an applicant confirmation and a staff alert through the outbox. **Not built yet:** the job board and apply form on the website. Checked in a browser against the local stack only. The database, functions and ward are deployed; the website isn't connected. |
+| 1. Intake: submit → inquiry saved → notifications queued | **Live.** The website's clinician and facility forms send to the hosted `intake`; 3 test inquiries (2 clinician, 1 facility, source `website`) arrived on 2026-10-29 with idempotency keys, and their notifications were delivered through Resend. |
+| 2. Staff: sign in → review → update pipeline | **Live.** Database functions `change_inquiry_stage`, `assign_inquiry`, `add_inquiry_note` and `organization_staff` handle stage changes (a reason is required to close), recruiter assignment (same-agency staff only) and append-only notes. Stage and assignment changes use optimistic concurrency via `version`. Ward exposes all of it. One admin exists; staff invites from ward aren't built, so more staff need creating by hand. |
+| 3. Recruiting: jobs, applications | **Backend and ward live; website not connected.** Recruiters enter jobs by hand in `ward.`. Each job is stored in two parts: public fields in `jobs`, and facility, requisition, rates and notes in `job_internal_details`, which only staff can read. The public listing reads only open jobs, through `list_public_jobs`, and only their public columns. Applications go in `job_applications`, from the website via the `apply` function, or from a recruiter putting forward a clinician inquiry. New website applications queue an applicant confirmation and a staff alert. Pay is internal only until the supplier agreements say otherwise. Production has 0 jobs and 0 applications. **Not built yet:** the job board and apply form on the website. |
 | 4. Onboarding: profiles, private documents | Not started |
 | 5. Placement: assignments, housing | Not started |
 
@@ -16,55 +27,16 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 
 | Connection | Status | Evidence / source | Next action | Blocker |
 |---|---|---|---|---|
-| Supabase database (hosted `fugzapgjowwwqgymcdbl`) | **Deployed; no live traffic yet** | Inspected read-only on 2026-10-28 with the Supabase CLI, which is signed in to an account that can see the project ("50jcarlson-36's Project", created 2026-10-28). `migration list` shows no remote migrations. A schema dump of `public` and `private` holds only Supabase's default grants: no tables, functions or `private` schema. `functions list` is empty. On 2026-10-28, with the owner's explicit approval:
-
-- **Migrations:** all six applied (`db push`, no seed data).
-- **Organization:** `nest-health-staff` ("Nest Health Staff") created, with alerts to `recruiting@nesthealthstaff.com`.
-- **Secrets:** nine function secrets set. The two random ones were generated in the shell and never displayed. `EMAIL_PROVIDER=dev`, so no email is delivered.
-- **Functions:** `intake`, `apply` and `process-outbox` deployed (version 1, `verify_jwt` off).
-
-Verified with requests that write nothing:
-
-- **`intake`:** preflight `204`, foreign origin `403`, GET `405`, missing consent `400` with the form's message.
-- **`apply`:** unknown job `404`, which went through the production database lookup. A form-encoded body gets `415`.
-- **`process-outbox`:** no secret gets `401`.
-- **Anonymous access:** `anon` is refused (`42501`) on `inquiries`, `job_internal_details`, `organizations` and `submit_job_application`. `list_public_jobs` returns `[]`.
-- **Data:** afterwards there were 0 inquiries, applications, outbox rows and rate-limit rows.
-
-Advisors report no errors. The warnings are all intended:
-
-- `list_public_jobs` is callable by `anon`. It's the job board.
-- 10 staff functions are callable by `authenticated`. Each one checks the caller's membership itself.
-- Two tables (`organization_memberships`, `profiles`) have two permissive read policies each, which is a minor performance cost. | Schedule the outbox worker; this needs `OUTBOX_PROCESSOR_SECRET` rotated to a value stored in Vault. Then point the website at `intake`. | The website isn't connected, so nothing calls the functions yet. Email isn't delivered until Resend is set up. |
+| Supabase database (hosted `fugzapgjowwwqgymcdbl`) | **Verified working** | Deployed 2026-10-28 with the owner's explicit approval (`db push`, no seed data). The schedule migration `20261029043156` was applied on 2026-10-29. Checked 2026-10-29: 7 migrations, 1 organization, 1 user, 1 membership. Earlier write-free checks: `intake` preflight `204`, foreign origin `403`, GET `405`; `apply` unknown job `404`, form body `415`; `process-outbox` without secret `401`; `anon` refused (`42501`) on `inquiries`, `job_internal_details`, `organizations` and `submit_job_application`. Advisors report no errors; the warnings are intended (`list_public_jobs` open to `anon`; staff functions open to `authenticated` and checking membership themselves; two tables with two permissive read policies). | n/a | n/a |
 | Supabase local stack | See the test results below | `supabase start` on ports 553xx | n/a | n/a |
-| Supabase Auth | **Available, not connected** | Configured locally only | Set the production Site URL and redirect URLs (DEPLOYMENT.md) | Hosted access |
+| Supabase Auth | **Verified working** | Site URL `https://nesthealthstaff.com`; the only redirect URL is `https://ward.nesthealthstaff.com/**` (set 2026-10-28 by `config push`, with the owner's approval). Magic-link sign-in to ward verified 2026-10-29 02:54 UTC. | Send Auth emails through Resend SMTP | Supabase's built-in sender has a low hourly limit. Not configured yet. |
 | Supabase Storage (private documents) | **Deferred** to phase 4 | n/a | n/a | n/a |
-| Live website `/api/leads` | **Unverified** | The endpoint exists and returns 405 to GET. Where it stores leads is unknown. | Get the Sites source and point the form at `/functions/v1/intake` | The Sites export to GitHub failed twice. |
-| Email inboxes: Zoho Mail | **Partly set up; delivery not tested** | Checked 2026-10-28. In the Zoho organization `mowmatter` (Mail Lite plan, 1 licence), `nesthealthstaff.com` shows "Verified". Public DNS has the Zoho MX records, SPF `include:zohomail.com`, and DKIM selector `zmail`. These aliases were added to the one mailbox, `jcarlson@mowmatter.com`: `recruiting@`, `hello@`, `privacy@` and `dmarc@`, plus `jcarlson@` (added 2026-10-29). Zoho refused `postmaster@` and `abuse@` as user aliases (`NOT_ALLOWED_AS_USER_ALIAS`), so they're on a group instead: "Nest Health Staff Postmaster" (`postmaster@`, with group alias `abuse@`). Anyone can send to it, and its one member is `jcarlson@mowmatter.com`, who can't send as the group. No test email has been sent to any of the six addresses. | Send a test message to each address. Add a DMARC TXT record in Cloudflare: `_dmarc` with `v=DMARC1; p=none; rua=mailto:dmarc@nesthealthstaff.com`. Set the production organization's `intake_notification_email` to `recruiting@`. | DMARC needs Cloudflare access. The alert address needs hosted database access. |
-| Resend (2026-10-29) | **Verified working** | **DNS:** the owner reports that Resend lists `nesthealthstaff.com` as Verified. Its records are live: `send.` and `rsend.` CNAMEs to `forge.rmta.net`, and the `resend._domainkey` DKIM key.
-
-**Secrets, checked by comparing hashes:** `EMAIL_PROVIDER=resend` and `RESEND_API_KEY` were already set. `EMAIL_REPLY_TO=recruiting@nesthealthstaff.com` was set outside this work and kept. `EMAIL_FROM` is now `Nest Health Staff <no-reply@nesthealthstaff.com>`, at the owner's request.
-
-**Work done outside this repo's commits, on 2026-10-29:** uncommitted Zoho email changes sit in the working tree, and secrets `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET` and `ZOHO_REFRESH_TOKEN` exist. Functions were redeployed: `intake` v6, `apply` v5, `process-outbox` v6. Migration `20261029043156_schedule_inquiry_notifications` was applied. It enables `pg_cron` and `pg_net` and schedules `nest-inquiry-notifications` every minute, reading the Vault secret `nest_outbox_processor_secret`. My redeploy of `process-outbox` found no change. The outbox secret was **not** rotated, because the existing Vault secret matches the function: 30 of 30 scheduled calls in 30 minutes returned `200` with `provider: resend`.
-
-**Sent through Resend:** six notifications from 3 test inquiries (all to `@nesthealthstaff.com`), each with a Resend message ID. One approved test email to `jcarlson@nesthealthstaff.com` was sent at 13:44:01 UTC on the first attempt, with a message ID, and **the owner confirmed it arrived in their inbox**. 
-
-**Zoho work committed and matched to production on 2026-10-29:** the Zoho adapter, the scheduling migration and `reference` in intake responses are committed. The dev-adapter guard now detects hosted projects by `*.supabase.co`; the earlier check refused locally and would have failed CI's smoke test. `process-outbox` v7 was deployed from the committed code and kept answering `200` with Resend. `intake` needed no redeploy. | Add DMARC. Check Auth SMTP. Zoho delivery (`EMAIL_PROVIDER=zoho`) is untested against Zoho itself and also needs `ZOHO_ACCOUNT_ID`. | n/a |
-| Email: Resend | **Available, not connected** | [Resend send-email API](https://resend.com/docs/api-reference/emails/send-email), checked 2026-10-28. It supports `Idempotency-Key` (24h retention). | Create an account, verify the sender domain in Cloudflare, set secrets | No account, key or verified domain. Notifications currently use the **dev adapter**, which logs and doesn't deliver. |
-| Domain `nesthealthstaff.com` | **Verified working** | Checked 2026-10-28: Cloudflare is the registrar and nameservers (`kellen`/`raphaela.ns.cloudflare.com`). The apex and `www` (CNAME `custom-domains.chatgpt.site`) both return `200` over valid HTTPS and serve the Sites frontend; `/api/leads` returns `405` to GET. | Optionally redirect `www` to the apex, so there's one canonical host | n/a |
-| `ward.nesthealthstaff.com` | **Verified working** | Deployed 2026-10-28 as Worker `nest-ward` (version `e28afa00`) in Cloudflare account "50jcarlson@gmail.com's Account", with a custom-domain route.
-
-- **Domain:** DNS resolves through Cloudflare. HTTPS returns `200`, and so does a deep link (single-page routing).
-- **Headers:** CSP naming only `fugzapgjowwwqgymcdbl`, `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer` and `nosniff` are all present. `robots.txt` disallows everything.
-- **Browser:** the sign-in form renders. The only console error is Cloudflare Web Analytics' auto-injected beacon, which the CSP blocks.
-- **Build:** the bundle holds the publishable key only. 
-
-On 2026-10-28, with the owner's explicit approval:
-
-- **Auth URLs:** the hosted Auth Site URL was changed from `http://localhost:3000` to `https://nesthealthstaff.com`, and `https://ward.nesthealthstaff.com/**` was added as the only redirect URL. This went through `config push` from a scratch copy of the production config, with a diff that showed exactly those two changes beforehand and none afterwards.
-- **First admin:** `50jcarlson@gmail.com` was created as a confirmed user, with no invite email, because Supabase's invite link uses the implicit flow and ward's PKCE sign-in can't complete it. The profile is "Joshua Carlson", with an `admin` membership of `nest-health-staff`. That's 1 user and 1 membership in production. 
-
-**Sign-in failed on the first attempt (2026-10-28).** The auth log shows one magic link sent, its token consumed, `last_sign_in_at` empty and no sessions. Ward sent `emailRedirectTo` without a trailing slash (`https://ward.nesthealthstaff.com`), which doesn't match the allow-list entry `https://ward.nesthealthstaff.com/**`. Supabase fell back to the Site URL, so the first click landed on nesthealthstaff.com with an unused code, and a second click returned `otp_expired`. Locally this passed only because ward and the Site URL share the host `127.0.0.1`. Fix: ward now sends `https://ward.nesthealthstaff.com/` (deployed as version `8f196d3e`). **Sign-in verified after the fix:** the owner signed in, and the auth tables show `last_sign_in_at` 2026-10-29 02:54 UTC and one session. Ward showed the Inquiries page as "Nest Health Staff · admin". | Optionally turn off automatic Web Analytics for this hostname. | Auth emails use Supabase's default sender until custom SMTP (Resend) is set up. |
+| Website → `intake` | **Connected (reported), data consistent** | Another session reported on 2026-10-29 that the website's inquiry forms now call the hosted `intake` before reporting success, with a stable `Idempotency-Key` per submission, and that nurse and facility submissions appeared in ward with matching receipt IDs. The website keeps a legacy D1 copy for job and referral reporting; ward is authoritative. The website source isn't in this repo, so this was not re-tested here. Production data matches: 3 inquiries with source `website`, consent version `2026-10-website-v1` and idempotency keys. | Add the job board and apply form, calling `list_public_jobs` and `apply` | The website source lives outside this repo |
+| Email inboxes: Zoho Mail | **Set up; receipt verified for `jcarlson@`** | In the Zoho organization `mowmatter` (Mail Lite plan, 1 licence), `nesthealthstaff.com` is "Verified". Public DNS has the Zoho MX records, SPF `include:zohomail.com` and DKIM selector `zmail`. Aliases on the one mailbox, `jcarlson@mowmatter.com`: `recruiting@`, `hello@`, `privacy@`, `dmarc@` and `jcarlson@`. `postmaster@` and `abuse@` are on the group "Nest Health Staff Postmaster", since Zoho refuses them as user aliases. The Resend test email reached `jcarlson@`; the other addresses haven't had a test message. | Add a DMARC TXT record in Cloudflare: `_dmarc` with `v=DMARC1; p=none; rua=mailto:dmarc@nesthealthstaff.com`. Checked 2026-10-29: no `_dmarc` record exists. | Cloudflare DNS access |
+| Email sending: Resend | **Verified working** | Domain `nesthealthstaff.com` Verified in Resend; `send.` and `rsend.` CNAMEs to `forge.rmta.net` and the `resend._domainkey` DKIM key are live. Secrets: `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM=Nest Health Staff <no-reply@nesthealthstaff.com>`, `EMAIL_REPLY_TO=recruiting@nesthealthstaff.com`. The adapter sends the outbox row id as `Idempotency-Key`. The approved test email to `jcarlson@nesthealthstaff.com` (2026-10-29 13:44 UTC) arrived. | Add DMARC | n/a |
+| Email sending: Zoho Mail API | **Built, not connected** | Committed in `0fa9093`. `EMAIL_PROVIDER=zoho` sends through a Zoho mailbox with an OAuth refresh token. Zoho documents no idempotency key, so an unknown send outcome is failed for manual reconciliation, never retried. Secrets `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET` and `ZOHO_REFRESH_TOKEN` exist; `ZOHO_ACCOUNT_ID` doesn't. Tested only with fakes. | Only if switching from Resend: set `ZOHO_ACCOUNT_ID` and test against Zoho | Not needed while Resend works |
+| Domain `nesthealthstaff.com` | **Verified working** | Checked 2026-10-28: Cloudflare is the registrar and nameservers (`kellen`/`raphaela.ns.cloudflare.com`). The apex and `www` (CNAME `custom-domains.chatgpt.site`) both return `200` over valid HTTPS and serve the Sites frontend. Apex rechecked `200` on 2026-10-29. | Optionally redirect `www` to the apex, so there's one canonical host | n/a |
+| `ward.nesthealthstaff.com` | **Verified working** | Worker `nest-ward` in Cloudflare account "50jcarlson@gmail.com's Account", with a custom-domain route; current version `8f196d3e`. HTTPS and deep links return `200`. Headers: CSP naming only `fugzapgjowwwqgymcdbl`, `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer`, `nosniff`; `robots.txt` disallows everything. The bundle holds the publishable key only. The first sign-in failed because ward sent `emailRedirectTo` without a trailing slash, which doesn't match the allow-list glob; fixed in `8f196d3e` and verified. The only console error is Cloudflare Web Analytics' injected beacon, which the CSP blocks. | Optionally turn off automatic Web Analytics for this hostname. Build staff invites. | Uncommitted branding changes to ward (`App.tsx`, `jobs.tsx`, `styles.css`, `brand.tsx`) are in the working tree and not deployed. |
 | Subdomains `staff.`, `employers.` | **Not live** | Checked 2026-10-28: neither has a DNS record. Hosting is decided: Cloudflare Workers, like ward. | Build them | Phase 4 |
 | NurseRecruiter.com: **jobs in** | **Unverified (not offered)** | The [API docs](https://api.nurserecruiter.com/) (checked 2026-10-28) document only `GET /v1/candidates` and `GET /v1/resume/{id}`. There's no jobs endpoint or job feed. The site lets employers *post* jobs there. | Ask NurseRecruiter whether a job feed or partner syndication exists | No documented route |
 | NurseRecruiter.com: candidates in | **Access required** | The same docs describe Bearer-token auth, issued "once your integration is enabled". Up to 100 candidates per page, filterable by acquisition date. Rate limits and webhooks aren't documented. | Needs an employer account with the integration enabled. Importing resumes also needs phase 4 private document storage. | No account or token |
@@ -83,7 +55,7 @@ Most sources below are vendor pages and trade press, not program documentation. 
 
 | Source | What it gives us | Status | Access requirements | Next action |
 |---|---|---|---|---|
-| **Direct facility contracts** | Job orders straight from a hospital, which a recruiter enters in `ward.` | **Available, not connected.** Job entry is built (phase 3), locally only; no real facility contract exists yet. | A signed staffing agreement with each facility | Build phase 3 job entry. This is the first-release path. |
+| **Direct facility contracts** | Job orders straight from a hospital, which a recruiter enters in `ward.` | **Available, not connected.** Job entry is live in ward; no real facility contract exists yet. | A signed staffing agreement with each facility | Sign the first facility. This is the first-release path. |
 | **AMN ShiftWise Flex** (VMS) | Open requisitions from hospitals using it | **Access required** | Approval as a supplier in AMN's network (1,100+ suppliers). AMN says suppliers can connect their ATS and payroll by API. No public application page was found. | Contact AMN's supplier relations. [Product page](https://amnhealthcare.com/technology/workforce/vendor-management-systems/shiftwise-flex) |
 | **Medefis** (VMS with managed service, owned by AMN) | Requisitions from its client hospitals | **Access required** | A Medefis-vetted agency. The route for new suppliers isn't published. | Contact Medefis or AMN business development. [Overview](https://www.allhealthinc.com/strategic-business-partner/medefis) |
 | **Aya LotusOne** (formerly Aya Connect VMS) | Requisitions from hospitals using Aya's platform | **Unverified** | No supplier registration documentation was found | Ask Aya about subcontractor/supplier access. [Sales sheet](https://www.ayahealthcare.com/wp-content/uploads/sites/2/2025/06/LotusOne_Aya_DigitalPlatform_SalesSheet.pdf) |
@@ -123,11 +95,19 @@ The "Test results" section below records whether each test has actually run and 
 
 - **Single agency or multi-agency.** This is still undecided. The schema separates organizations either way, and nothing assumes billing or self-signup.
 - **Inquiry retention period**, and how a person can ask for deletion.
-- **Which address receives staff alerts:** the `intake_notification_email` on the production organization.
+- **The uncommitted ward branding changes:** commit, revise or discard.
 
 ## Test results
 
-Run on 2026-10-28 against the **local** stack: Supabase CLI 2.122.0, Postgres 17, synthetic data only.
+On 2026-10-29, after the Zoho and outbox-schedule work (commit `0fa9093`), against the **local** stack:
+
+- **`npm test`: 109 passed, 0 failed**, including 6 Zoho adapter tests (token refusal, unknown send outcome, bad configuration, provider selection, and the outbox refusing to resend a retried Zoho row).
+- **`scripts/smoke-functions.sh`: all checks passed**, including `intake` returning `{"ok":true,"reference":"<id>"}`.
+- **CI** (GitHub Actions `Test`) passed on the push of `0fa9093`.
+
+Earlier runs, on 2026-10-28, Supabase CLI 2.122.0, Postgres 17, synthetic data only:
+
+
 
 - **`npm test`: 103 passed, 0 failed** (2026-10-28, after adding application emails). The run before it failed at file setup: `jobs.test.ts` took more than 60 seconds to create its test users while the load average was about 58. The rerun passed. See the load note below.
   - Application emails:
@@ -155,12 +135,5 @@ Run on 2026-10-28 against the **local** stack: Supabase CLI 2.122.0, Postgres 17
   - Function logs contained request ids and outcomes only, and recipients were redacted to `***@example.com`.
 - **Not run:**
   - `supabase db lint`: it couldn't connect while the host was overloaded (load average around 86).
-  - The hosted project's security advisors: no access yet.
+  - The hosted project's security advisors: since run (2026-10-28) with no errors; see Integrations.
   - `deno check` on the two function entry points: Deno isn't installed. They did compile and run in the local edge runtime.
-
-## Website → Ward connection update
-Public inquiry intake now calls the hosted Supabase intake before reporting success. Nurse and facility browser submissions both appeared in Ward with matching receipt IDs. The website retains a legacy D1 reporting projection for job/referral associations; Ward is authoritative for recruiting follow-up. Form retries carry a stable Idempotency-Key.
-
-Intake now returns its inquiry ID. The outbox supports Zoho OAuth sending and refuses the non-delivering dev adapter in production before claiming rows. Ambiguous Zoho sends require manual reconciliation; no documented provider idempotency is assumed. The every-minute notification processor is scheduled with its secret in Vault.
-
-Backend type check and 41 unit tests pass. Two labeled synthetic inquiries and four notifications exist for flow verification, all addressed to recruiting@nesthealthstaff.com. Email remains pending, not delivered: Zoho API Console requires owner identity re-verification and OAuth authorization. No production sender credentials have been configured. Actual mailbox receipt is not yet verified.
