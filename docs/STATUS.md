@@ -16,7 +16,26 @@ Last updated 2026-10-28. All data in this repo and its tests is synthetic, using
 
 | Connection | Status | Evidence / source | Next action | Blocker |
 |---|---|---|---|---|
-| Supabase database (hosted `fugzapgjowwwqgymcdbl`) | **Available, not connected** | Inspected read-only on 2026-10-28 with the Supabase CLI, which is signed in to an account that can see the project ("50jcarlson-36's Project", created 2026-10-28). `migration list` shows no remote migrations. A schema dump of `public` and `private` holds only Supabase's default grants: no tables, functions or `private` schema. `functions list` is empty. `db push --dry-run` would apply exactly the six local migrations and no seed data. | Push the migrations, create the production organization, set function secrets and deploy the functions (DEPLOYMENT.md, steps 2–5) | Nothing has been applied. Pushing to production needs an explicit go-ahead in this session, or the owner runs the commands. |
+| Supabase database (hosted `fugzapgjowwwqgymcdbl`) | **Deployed; no live traffic yet** | Inspected read-only on 2026-10-28 with the Supabase CLI, which is signed in to an account that can see the project ("50jcarlson-36's Project", created 2026-10-28). `migration list` shows no remote migrations. A schema dump of `public` and `private` holds only Supabase's default grants: no tables, functions or `private` schema. `functions list` is empty. On 2026-10-28, with the owner's explicit approval:
+
+- **Migrations:** all six applied (`db push`, no seed data).
+- **Organization:** `nest-health-staff` ("Nest Health Staff") created, with alerts to `recruiting@nesthealthstaff.com`.
+- **Secrets:** nine function secrets set. The two random ones were generated in the shell and never displayed. `EMAIL_PROVIDER=dev`, so no email is delivered.
+- **Functions:** `intake`, `apply` and `process-outbox` deployed (version 1, `verify_jwt` off).
+
+Verified with requests that write nothing:
+
+- **`intake`:** preflight `204`, foreign origin `403`, GET `405`, missing consent `400` with the form's message.
+- **`apply`:** unknown job `404`, which went through the production database lookup. A form-encoded body gets `415`.
+- **`process-outbox`:** no secret gets `401`.
+- **Anonymous access:** `anon` is refused (`42501`) on `inquiries`, `job_internal_details`, `organizations` and `submit_job_application`. `list_public_jobs` returns `[]`.
+- **Data:** afterwards there were 0 inquiries, applications, outbox rows and rate-limit rows.
+
+Advisors report no errors. The warnings are all intended:
+
+- `list_public_jobs` is callable by `anon`. It's the job board.
+- 10 staff functions are callable by `authenticated`. Each one checks the caller's membership itself.
+- Two tables (`organization_memberships`, `profiles`) have two permissive read policies each, which is a minor performance cost. | Schedule the outbox worker; this needs `OUTBOX_PROCESSOR_SECRET` rotated to a value stored in Vault. Then point the website at `intake`, add the first staff member, and deploy ward. | The website isn't connected, so nothing calls the functions yet. Email isn't delivered until Resend is set up. |
 | Supabase local stack | See the test results below | `supabase start` on ports 553xx | n/a | n/a |
 | Supabase Auth | **Available, not connected** | Configured locally only | Set the production Site URL and redirect URLs (DEPLOYMENT.md) | Hosted access |
 | Supabase Storage (private documents) | **Deferred** to phase 4 | n/a | n/a | n/a |
