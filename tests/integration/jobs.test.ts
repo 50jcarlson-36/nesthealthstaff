@@ -339,3 +339,69 @@ describe("recruiter applications", () => {
     expect((await recruiterA.client.from("job_applications").insert({ job_id: id, organization_id: orgA.id, source: "recruiter", full_name: "X Y", email: "x@example.com" })).error?.code).toBe("42501");
   });
 });
+
+describe("application emails", () => {
+  async function outboxFor(applicationId: string) {
+    const { data, error } = await service.from("notification_outbox")
+      .select("template, recipient, status, template_data, dedupe_key, organization_id").eq("application_id", applicationId).order("template");
+    if (error) throw error;
+    return data!;
+  }
+  const outboxCount = async (column: string, value: string) =>
+    (await service.from("notification_outbox").select("*", { count: "exact", head: true }).eq(column, value)).count;
+
+  it("queues a confirmation and a staff alert for a new website application", async () => {
+    const id = await openJob();
+    const body = application({ full_name: "Morgan Applicant", phone: "555-0199" });
+    const { application_id } = await apply(orgA.slug, id, body);
+
+    const rows = await outboxFor(application_id!);
+    expect(rows.map((r) => [r.template, r.recipient, r.status, r.dedupe_key])).toEqual([
+      ["job_application_confirmation", body.email, "pending", `application:${application_id}:confirmation`],
+      ["staff_new_application_alert", `alerts-jobs-a@example.com`, "pending", `application:${application_id}:staff_alert`],
+    ]);
+    expect(rows[0].template_data).toEqual({ organization_name: "Test jobs-a", job_title: "Travel RN, Telemetry" });
+    expect(rows[1].template_data).toEqual({ job_id: id, job_title: "Travel RN, Telemetry", application_id });
+    expect(rows.every((r) => r.organization_id === orgA.id)).toBe(true);
+
+    // Payloads carry no applicant details and nothing internal about the job.
+    const payloads = JSON.stringify(rows.map((r) => r.template_data));
+    for (const secret of [body.email, "Morgan Applicant", "555-0199", "Synthetic Regional", "SYNTHETIC-RATE", "REQ-TEST"]) {
+      expect(payloads).not.toContain(secret);
+    }
+  });
+
+  it("queues nothing more for a duplicate, and nothing for closed or unknown jobs", async () => {
+    const id = await openJob();
+    const body = application();
+    const { application_id } = await apply(orgA.slug, id, body);
+    await apply(orgA.slug, id, { ...body, email: body.email.toUpperCase() });
+    expect(await outboxFor(application_id!)).toHaveLength(2);
+
+    const closed = await openJob();
+    await setStatus(recruiterA.client, closed, 2, "closed");
+    const closedApplicant = application();
+    expect((await apply(orgA.slug, closed, closedApplicant)).status).toBe("job_closed");
+    expect((await apply(orgA.slug, crypto.randomUUID(), closedApplicant)).status).toBe("job_not_found");
+    expect(await outboxCount("recipient", closedApplicant.email)).toBe(0);
+  });
+
+  it("skips the staff alert when the agency has no alert address", async () => {
+    const quiet = await createOrganization("jobs-quiet", null);
+    const { data: job } = await service.from("jobs").insert({
+      organization_id: quiet.id, status: "open", published_at: new Date().toISOString(),
+      title: "Quiet job", specialty: "ICU", employment_type: "travel", city: "Reno", state: "NV",
+    }).select("id").single();
+    await service.from("job_internal_details").insert({ job_id: job!.id, organization_id: quiet.id, facility_name: "Synthetic" });
+
+    const { application_id } = await apply(quiet.slug, job!.id, application());
+    expect((await outboxFor(application_id!)).map((r) => r.template)).toEqual(["job_application_confirmation"]);
+  });
+
+  it("sends nothing for a candidate a recruiter puts forward", async () => {
+    const id = await openJob();
+    const inquiry = (await submit(orgA.slug, inquiryPayload())).inquiry_id!;
+    const { data } = await addFromInquiry(recruiterA.client, id, inquiry);
+    expect(await outboxFor(data.id)).toEqual([]);
+  });
+});

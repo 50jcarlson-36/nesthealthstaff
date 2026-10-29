@@ -90,6 +90,38 @@ describe("templates", () => {
     expect(email.html).toContain("&lt;script&gt;");
   });
 
+  it("confirms an application with the job title and no promise of placement", () => {
+    const email = renderTemplate(
+      "job_application_confirmation",
+      { organization_name: "Nest Health Staff", job_title: "Travel RN, Telemetry" },
+      DEFAULT_PORTAL_URLS,
+    );
+    expect(email.subject).toBe("We received your application — Nest Health Staff");
+    expect(email.text).toContain("Thank you for applying for Travel RN, Telemetry.");
+    expect(email.text).toContain("not a job offer or a guarantee of placement");
+    expect(renderTemplate("job_application_confirmation", {}, DEFAULT_PORTAL_URLS).text).toContain("applying for the job you chose");
+  });
+
+  it("application alerts link to the job in ward and contain no contact details", () => {
+    const email = renderTemplate(
+      "staff_new_application_alert",
+      { job_id: "job-123", job_title: "Travel RN,\nTelemetry", application_id: "app-456" },
+      DEFAULT_PORTAL_URLS,
+    );
+    expect(email.subject).toBe("New application: Travel RN, Telemetry");
+    expect(email.text).toContain("https://ward.nesthealthstaff.com/jobs/job-123");
+    expect(email.html).not.toMatch(/@|\d{3}[-. ]\d{4}/);
+    expect(renderTemplate("staff_new_application_alert", {}, DEFAULT_PORTAL_URLS).text).toMatch(/\nhttps:\/\/ward\.nesthealthstaff\.com\/jobs$/);
+  });
+
+  it("escapes job titles in HTML", () => {
+    for (const template of ["job_application_confirmation", "staff_new_application_alert"]) {
+      const email = renderTemplate(template, { job_title: "<img src=x onerror=alert(1)>", job_id: "j" }, DEFAULT_PORTAL_URLS);
+      expect(email.html).not.toContain("<img");
+      expect(email.html).toContain("&lt;img");
+    }
+  });
+
   it("redacts recipients in logs", () => {
     expect(redactEmail("person@example.com")).toBe("***@example.com");
   });

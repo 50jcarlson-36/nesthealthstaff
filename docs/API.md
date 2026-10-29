@@ -193,4 +193,9 @@ Any other field is dropped. Applications collect contact details only: no résum
 | `429` | error | More than 10 applications from one client in 10 minutes. The client IP is hashed with `INTAKE_IP_HASH_SECRET`. |
 | `500` / `503` | error | Server error, or the function isn't configured |
 
-Each saved application appears in ward under its job with stage `applied`. No confirmation email is sent yet.
+Each saved application appears in ward under its job with stage `applied`. Two emails are queued in the same transaction:
+
+- `job_application_confirmation` goes to the applicant.
+- `staff_new_application_alert` goes to the agency's `intake_notification_email`, if one is set, and links to the job in ward.
+
+Neither email contains applicant details, and neither contains internal job fields. A duplicate, a closed or unknown job, or a rate-limited request queues nothing. A candidate a recruiter puts forward from an inquiry gets no email, because they didn't apply themselves. Outbox rows carry `application_id`.

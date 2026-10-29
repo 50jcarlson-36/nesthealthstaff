@@ -24,6 +24,11 @@ function str(data: TemplateData, key: string, fallback: string): string {
   return typeof value === "string" && value.trim() !== "" ? value : fallback;
 }
 
+// Staff-entered text (a job title) on one line, for subjects.
+function oneLine(value: string): string {
+  return value.replace(/[\u0000-\u001f\u007f\s]+/g, " ").trim();
+}
+
 function layout(paragraphs: string[], link?: { href: string; label: string }): string {
   const body = paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n");
   const button = link
@@ -81,6 +86,38 @@ export function renderTemplate(
         subject: `New ${kind} inquiry`,
         text: `${lines.join("\n\n")}\n\n${href}`,
         html: layout(lines, { href, label: "Review inquiry" }),
+      };
+    }
+
+    case "job_application_confirmation": {
+      const job = str(data, "job_title", "the job you chose");
+      const lines = [
+        `Thank you for applying for ${job}.`,
+        `The ${agency} team has received your application and a recruiter will be in touch if it's a match.`,
+        "Applying is not a job offer or a guarantee of placement.",
+        "Please don't reply with patient information or credential documents.",
+      ];
+      return {
+        subject: "We received your application — Nest Health Staff",
+        text: `${lines.join("\n\n")}\n\n${portals.publicSite}`,
+        html: layout(lines, { href: portals.publicSite, label: "Visit Nest Health Staff" }),
+      };
+    }
+
+    case "staff_new_application_alert": {
+      const job = str(data, "job_title", "a job");
+      const jobId = str(data, "job_id", "");
+      const href = jobId
+        ? `${portals.adminPortal}/jobs/${encodeURIComponent(jobId)}`
+        : `${portals.adminPortal}/jobs`;
+      const lines = [
+        `Someone applied for ${job} through the website.`,
+        "Sign in to review the application.",
+      ];
+      return {
+        subject: `New application: ${oneLine(job)}`,
+        text: `${lines.join("\n\n")}\n\n${href}`,
+        html: layout(lines, { href, label: "Review application" }),
       };
     }
 
