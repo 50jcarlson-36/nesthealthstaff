@@ -311,3 +311,85 @@ One journey per open application on a partner opening: where the candidate stand
 | Credentialing | Collect N missing items, or confirm clearance | earliest item due, else 5 days |
 | Cleared to start | Check in before the start date | 3 days before start |
 | Started / extended | Plan the next assignment (within 6 weeks of the end), else check in | 4 weeks before the end, else every 2 weeks |
+
+## Partner connector
+
+How candidates and progress move between Nest and a partner's ATS. A partner only ever sees and changes its own submissions. Every update, applied or not, is logged in `partner_events`. Exports are logged in `audit_events` (`partner_export`, `partner_api_export`).
+
+### API keys (admins, own session)
+
+- `create_partner_api_key(p_partner_id, p_label)` returns `{id, key, key_prefix}`. The key (`nhs_pk_` plus 64 hex characters) is shown once; only its SHA-256 hash is stored. The partner must be active, and can have two live keys at most, so one can replace the other.
+- `revoke_partner_api_key(p_key_id)`.
+- Keys stop working when revoked, or when the partner is no longer active or paused.
+- Staff read `partner_api_keys` without `key_hash`.
+
+### `GET /functions/v1/partner-api/submissions`
+
+Server-to-server, with `Authorization: Bearer nhs_pk_...`. Requests with an `Origin` header (browsers) are refused with `403`.
+
+Query: `since` (ISO 8601; rows changed at or after it), `limit` (1–1000, default 500), `format` (`json` or `csv`).
+
+The JSON reply is `{partner: {name}, submissions: [...], has_more, next_since}`. To page, pass the last row's `updated_at` (also in `next_since`) as `since`; that row comes back again, so de-duplicate on `submission_id`. CSV replies carry `X-Has-More` and `X-Next-Since` headers.
+
+Each submission has:
+- `submission_id`, `partner_candidate_reference`, `status`, `submitted_at`, `attribution_expires_on`;
+- `stage`, `stage_updated_at`, `assignment_start_on`, `assignment_end_on`;
+- `candidate`: `{full_name, email, phone}`, or `null` once the submission is withdrawn or reported as a duplicate;
+- `job`: `id`, `title`, `specialty`, `city`, `state`, `shift`, `start_date`, `duration_weeks`, `partner_job_reference` and `is_strike`;
+- `checklist`: `[{title, owner, status, due_on}]`;
+- `updated_at`.
+
+Pay terms, incentives, facility details and internal notes are never included. CSV cells that a spreadsheet would run as formulas are prefixed with `'`.
+
+### `POST /functions/v1/partner-api/events`
+
+One update as JSON, up to 16 KB:
+
+```json
+{
+  "event_id": "ats-evt-8812",
+  "occurred_at": "2026-11-02T15:04:00Z",
+  "submission_id": "…",
+  "partner_candidate_reference": "ATS-123",
+  "stage": "credentialing",
+  "assignment_start_on": "2026-12-01",
+  "assignment_end_on": "2027-03-01",
+  "note": "Offer accepted by phone",
+  "items": [{"title": "TB test", "status": "received"}, {"title": "Drug screen", "status": "needed", "owner": "candidate", "due_on": "2026-11-20"}]
+}
+```
+
+- **`event_id` (required):** up to 100 characters. An event already accepted returns `duplicate` and changes nothing. A rejected event's id isn't kept, so the partner can fix the event and resend it with the same id.
+- **Which submission:**
+  - `submission_id` from the export, or the partner's own `partner_candidate_reference`. A reference must match exactly one open submission.
+  - If both are given, the reference is saved for later events.
+- **`stage`:** one of `submitted`, `partner_review`, `interview`, `offer`, `offer_accepted`, `credentialing`, `cleared_to_start`, `started`, `extended`, `completed`, `declined`, `cancelled`. Labels like "Partner review" are accepted.
+  - `started`, `extended` and `completed` need a start date.
+  - `declined` and `cancelled` without a note record "Reported by <partner>".
+  - The application's own stage follows, as with staff changes.
+- **`occurred_at` (optional):** a stage change older than the one already recorded is skipped as `stale`.
+- **`items`:**
+  - Matched to the checklist by title, ignoring case. Items that don't exist yet are added, owned by the partner unless `owner` says otherwise.
+  - `status` is `needed`, `received` or `waived`. Waiving without a note records "Waived by <partner>".
+  - The checklist records only that an item exists, never a document.
+
+Replies:
+- `200` `{result: "applied" | "unchanged" | "stale" | "duplicate", submission_id, changes}`;
+- `422` `{result: "rejected", error}`. A rejected event changes nothing;
+- `401` missing or unknown key; `400` invalid JSON; `413`; `415`.
+
+### Ward (staff, own session)
+
+- `export_partner_submissions(p_partner_id, p_since)`: the same rows as the API, up to 5000. Ward downloads them as CSV or JSON.
+- `import_partner_updates(p_partner_id, p_rows, p_dry_run)`:
+  - `p_rows` holds up to 500 update objects, shaped like API events but without `event_id`. Ward reads them from the partner's CSV.
+  - A dry run returns each row's result and changes nothing.
+  - Results are `{dry_run, counts, rows: [{row, result, error?, submission_id?, changes?}]}`.
+- **CSV columns (headers ignore case and punctuation):**
+  - `submission_id`, or `partner_candidate_reference` (also `reference` or `candidate id`);
+  - `stage`, or `status` when there's no `stage` column;
+  - `assignment_start_on` / `start date`, `assignment_end_on` / `end date`, `note`;
+  - `item`, `item_status`, `item_owner`, `item_due_on`, `item_note`.
+
+  Other columns are ignored and listed, so the partner can edit our export and send it back.
+- Staff read `partner_events` for the partner's recent updates.

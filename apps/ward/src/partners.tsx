@@ -7,6 +7,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { formatDate, label, Link, type Save, useSave } from "./shared.tsx";
 import { type Job, type JobApplication, type Membership, pipelineError, supabase } from "./supabase.ts";
 import { PartnerRequirements } from "./journeys.tsx";
+import { PartnerConnector } from "./connector.tsx";
 
 type Navigate = (to: string) => void;
 
@@ -218,6 +219,7 @@ export function PartnerDetail({ id, navigate, memberships }: { id: string; navig
             {text("Notes", partner.notes)}
           </div>
           <PartnerRequirements partnerId={partner.id} isAdmin={isAdmin} />
+          <PartnerConnector partner={partner} isAdmin={isAdmin} />
         </>
       )}
     </article>

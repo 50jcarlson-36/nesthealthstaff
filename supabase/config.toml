@@ -439,6 +439,10 @@ verify_jwt = false
 [functions.consent]
 verify_jwt = false
 
+# Partners authenticate with their own API key, checked by the function.
+[functions.partner-api]
+verify_jwt = false
+
 # Called by the scheduler with OUTBOX_PROCESSOR_SECRET; anon JWTs must not work.
 [functions.process-outbox]
 verify_jwt = false

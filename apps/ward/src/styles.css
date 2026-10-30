@@ -250,3 +250,19 @@ tr.overdue td:first-child { box-shadow: inset 3px 0 0 var(--error); }
 .checklist { list-style: none; padding: 0; margin: 0.5rem 0; display: grid; gap: 0.4rem; }
 .checklist li { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; font-size: 0.85rem; }
 .checklist li.item-received, .checklist li.item-waived { color: var(--muted); }
+
+/* Partner connector */
+.connector { display: grid; gap: 1rem; margin-top: 1.5rem; }
+.connector > h2 { margin: 0; }
+.connector .card { display: grid; gap: 0.6rem; }
+.connector .card h3 { margin: 0; }
+.connector code { font-size: 0.8em; overflow-wrap: anywhere; }
+.row.wrap { flex-wrap: wrap; align-items: center; }
+label.inline { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+button.secondary { background: var(--surface); color: var(--accent); border: 1px solid var(--border); }
+.key-once { display: grid; gap: 0.5rem; }
+code.secret { display: block; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; user-select: all; }
+.checklist li.rejected, .import-preview tr.rejected td { color: var(--error); }
+.checklist li.revoked { color: var(--muted); text-decoration: line-through; }
+.checklist.events li { flex-direction: column; gap: 0.1rem; }
+.import-preview td, .import-preview th { font-size: 0.85rem; text-align: left; }

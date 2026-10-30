@@ -102,6 +102,31 @@ check "consent with a malformed token" 404 "$(consent "$WARD" '{"token":"nope","
 check "consent with an unknown token" 404 "$(consent "$WARD" '{"token":"0000000000000000000000000000000000000000000000000000000000000000","action":"granted"}')"
 check "consent GET not allowed" 405 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' "$BASE/consent")"
 
+# --- partner-api ---------------------------------------------------------------
+# Server-to-server with a partner API key. Events that change data are covered
+# in tests/integration/connector.test.ts; this checks the HTTP layer with a
+# synthetic partner and a key written straight to the local database.
+PARTNER_ID="$(rest POST partners "{\"organization_id\":\"$ORG_ID\",\"name\":\"Smoke Partner $RUN (synthetic)\",\"status\":\"active\",\"agreement_signed_on\":\"2026-10-01\",\"attribution_days\":90}" | sed -E 's/.*"id":"([^"]+)".*/\1/')"
+PARTNER_KEY="nhs_pk_$(openssl rand -hex 32)"
+rest POST partner_api_keys "{\"organization_id\":\"$ORG_ID\",\"partner_id\":\"$PARTNER_ID\",\"label\":\"smoke\",\"key_prefix\":\"${PARTNER_KEY:0:15}\",\"key_hash\":\"$(printf %s "$PARTNER_KEY" | shasum -a 256 | cut -d' ' -f1)\"}" > /dev/null
+papi() { # method route [auth] [body] [extra header]
+  curl -s -m 120 -o /tmp/nhs-smoke-body -w '%{http_code}' -X "$1" "$BASE/partner-api/$2" \
+    ${3:+-H "Authorization: $3"} ${4:+-H 'Content-Type: application/json' -d "$4"} ${5:+-H "$5"}
+}
+check "partner-api without a key" 401 "$(papi GET submissions)"
+check "partner-api with a malformed key" 401 "$(papi GET submissions "Bearer nope")"
+check "partner-api with an unknown key" 401 "$(papi GET submissions "Bearer nhs_pk_$(printf '0%.0s' {1..64})")"
+check "partner-api from a browser" 403 "$(papi GET submissions "Bearer $PARTNER_KEY" "" "Origin: $WARD")"
+check "partner-api unknown route" 404 "$(papi GET keys "Bearer $PARTNER_KEY")"
+check "partner-api wrong method" 405 "$(papi POST submissions "Bearer $PARTNER_KEY")"
+check "partner-api export" 200 "$(papi GET submissions "Bearer $PARTNER_KEY")"
+check "partner-api export body" '{"partner":{"name":"Smoke Partner '"$RUN"' (synthetic)"},"has_more":false,"submissions":[],"next_since":null}' "$(cat /tmp/nhs-smoke-body)"
+check "partner-api CSV header" "submission_id,partner_candidate_reference" "$(papi GET 'submissions?format=csv' "Bearer $PARTNER_KEY" > /dev/null; cut -d, -f1-2 /tmp/nhs-smoke-body | head -1 | tr -d '\r')"
+check "partner-api bad since" 400 "$(papi GET 'submissions?since=yesterday' "Bearer $PARTNER_KEY")"
+check "partner-api event without event_id" 422 "$(papi POST events "Bearer $PARTNER_KEY" '{"stage":"interview"}')"
+check "partner-api event for an unknown submission" 422 "$(papi POST events "Bearer $PARTNER_KEY" '{"event_id":"smoke-1","submission_id":"00000000-0000-4000-8000-000000000000","stage":"interview"}')"
+check "partner-api event invalid JSON" 400 "$(papi POST events "Bearer $PARTNER_KEY" '{')"
+
 check "outbox without secret" 401 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X POST "$BASE/process-outbox")"
 check "outbox with secret" 200 "$(curl -s -m 120 -o /tmp/nhs-smoke-body -w '%{http_code}' -X POST "$BASE/process-outbox" -H "x-outbox-secret: $SECRET")"
 echo "outbox summary: $(cat /tmp/nhs-smoke-body)"
