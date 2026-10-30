@@ -276,3 +276,19 @@ code.secret { display: block; padding: 0.5rem; background: var(--surface); borde
 .stipend-check { margin: 0; padding-left: 1.1rem; font-size: 0.9rem; }
 .stipend-check li.over { color: var(--error); }
 .card.travel label.inline input { flex: 1; min-width: 12rem; }
+
+/* Scores */
+.score { display: inline-grid; place-items: center; min-width: 2.2rem; padding: 0.1rem 0.45rem; border-radius: 999px; font-weight: 650; font-size: 0.85rem; }
+.score.high { background: #e7f6ef; color: #1f6b52; }
+.score.mid { background: #fdf4e3; color: #8a5a12; }
+.score.low { background: #f3f1f5; color: #6d6477; }
+.card.opportunity { display: grid; gap: 0.8rem; }
+.score-head { display: flex; gap: 1rem; align-items: center; }
+.score-head .score { font-size: 1.6rem; min-width: 4rem; padding: 0.5rem; }
+.score-head p { margin: 0; }
+.score-parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 0; }
+.score-parts dd { margin: 0.25rem 0 0; font-size: 0.85rem; }
+.score-parts meter { width: 100%; }
+.suggestion { margin: 0; padding: 0.6rem 0.8rem; border-radius: 8px; background: #fdf4e3; color: #6b4410; }
+.matches td { vertical-align: top; font-size: 0.9rem; }
+.matches .stage { margin: 0.25rem 0.25rem 0 0; display: inline-block; }

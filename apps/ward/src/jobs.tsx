@@ -8,6 +8,7 @@ import { formatDate, label, Link, type Save, type StaffDirectory, staffName, use
 import { type Consent, JobTermsCard, type JobTerms, type Partner, SubmissionPanel } from "./partners.tsx";
 import { type JourneyItem, JourneyPanel, type JourneySubmission } from "./journeys.tsx";
 import { type JobLocation, TravelCard } from "./travel.tsx";
+import { OpportunityCard, type OpportunityScore, scoreClass } from "./scores.tsx";
 import {
   APPLICATION_STAGES,
   type ApplicationStage,
@@ -48,7 +49,14 @@ type JobRow = Job & {
 export function JobList({ navigate }: { navigate: Navigate }) {
   const [status, setStatus] = useState<JobStatus | "active" | "all">("active");
   const [rows, setRows] = useState<JobRow[] | null>(null);
+  const [scores, setScores] = useState<Map<string, Pick<OpportunityScore, "score" | "suggestion" | "is_strike">>>(new Map());
+  const [byScore, setByScore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.from("opportunity_scores").select("job_id, score, suggestion, is_strike").then(({ data }) =>
+      setScores(new Map((data ?? []).map((s) => [s.job_id as string, s as OpportunityScore]))));
+  }, []);
 
   useEffect(() => {
     setRows(null);
@@ -83,6 +91,7 @@ export function JobList({ navigate }: { navigate: Navigate }) {
             ))}
           </select>
         </label>
+        <label className="inline"><input type="checkbox" checked={byScore} onChange={(e) => setByScore(e.target.checked)} /> Highest score first</label>
         <button onClick={() => navigate("/jobs/new")}>New job</button>
       </div>
       {error && <p role="alert" className="error">{error}</p>}
@@ -99,10 +108,11 @@ export function JobList({ navigate }: { navigate: Navigate }) {
               <th>Start</th>
               <th>Applications</th>
               <th>Status</th>
+              <th>Score</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((j) => (
+            {(byScore ? [...rows].sort((a, b) => (scores.get(b.id)?.score ?? -1) - (scores.get(a.id)?.score ?? -1)) : rows).map((j) => (
               <tr key={j.id}>
                 <td><Link to={`/jobs/${j.id}`} navigate={navigate}>{j.title}</Link></td>
                 <td>{j.job_internal_details?.facility_name}</td>
@@ -111,6 +121,12 @@ export function JobList({ navigate }: { navigate: Navigate }) {
                 <td>{j.start_date && formatDate(j.start_date)}</td>
                 <td>{j.job_applications[0]?.count ?? 0}</td>
                 <td><span className={`stage job-${j.status}`}>{label(j.status)}</span></td>
+                <td>{scores.has(j.id) ? (
+                  <span title={scores.get(j.id)!.suggestion ?? undefined}>
+                    <span className={scoreClass(scores.get(j.id)!.score)}>{scores.get(j.id)!.score}</span>
+                    {scores.get(j.id)!.suggestion && <span className="muted"> · push</span>}
+                  </span>
+                ) : <span className="muted">—</span>}</td>
               </tr>
             ))}
           </tbody>
@@ -423,6 +439,7 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
             {internal.internal_notes && <><h3>Notes</h3><p className="note-body">{internal.internal_notes}</p></>}
           </div>
           <JobTermsCard job={job} terms={terms} partners={partners} save={saveJob} />
+          <OpportunityCard key={`score-${job.version}`} jobId={job.id} />
           <TravelCard job={job} location={internal} terms={terms} save={saveJob} />
         </>
       )}

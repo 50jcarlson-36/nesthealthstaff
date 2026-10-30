@@ -438,3 +438,42 @@ The job page has a **Location and travel** card:
 - **Per diem:** nightly lodging for the start month and meals per day, plus weekly ceilings averaged over the assignment's months. When the partner terms set housing and meals stipends, it compares them against the ceilings. This is guidance only: the partner, as employer, sets stipends and decides who qualifies for them tax-free.
 - **Housing:** searches on Furnished Finder, Airbnb monthly stays and Zillow rentals for the opening's city. They're plain links; none of these sites shares data with Nest.
 - **Maps:** links to Google Maps and Apple Maps, and Google driving directions from an origin the recruiter types.
+
+## Opportunity score, fit and wage options
+
+Both are computed in the database with the caller's rights, so staff only see their own agency. Each number comes with its reasons.
+
+### `opportunity_scores` (view)
+
+One row per **open** job, scored from 0 to 100: how strongly to push the opening.
+
+| Part | Points | From |
+|---|---|---|
+| Need | 0–40 | Partner priority (critical 20, high 12, normal 4); crisis rate +8; starts within 14 days +8 or within 30 days +4; 2 or more openings unfilled +4; no candidates in screening, submitted or offered +4 |
+| Pay | 0–40 | The effective weekly package against the median of the agency's open jobs in the same specialty, or all of its open jobs when the specialty has fewer than 3 with pay. The median scores 20; 20% above scores 40, and 20% below scores 0. No pay on file scores 0 |
+| Incentives | 0–20 | Nest incentive +8, sign-on bonus +5, completion bonus +4, extension bonus +3 |
+
+**Weekly package:** the partner's weekly gross when given. Otherwise it's the hourly rate × hours per week (36 when unknown), plus the housing and meals stipends.
+
+**Effective weekly package:** the weekly package plus the sign-on bonus, completion bonus and Nest incentive, spread over the assignment's weeks (13 when unknown).
+
+**Strike work:** it doesn't change the score. It's flagged (`is_strike`) and never promoted.
+
+**Columns:**
+- `score`, `need_score`, `pay_score` and `incentive_score`;
+- the reasons: `need_reasons`, `pay_reason` and `incentive_reasons`;
+- `weekly_package_cents`, `effective_weekly_cents`, `median_weekly_cents`, `compared_with` (`specialty` or `all`) and `pay_vs_median_pct`;
+- `suggestion`: set when need is 24 or more and pay is missing, pay is below the median, or there are no incentives. It tells recruiters where an incentive or a better rate would help fill the job.
+
+### `matching_openings(p_inquiry_id)`
+
+Open jobs rated for one clinician inquiry, up to 50 of them, best first. It returns nothing for an inquiry the caller can't see.
+
+| Part | Points | From |
+|---|---|---|
+| Specialty | 0–50 | Same 50; related (one contains the other, or they share a word) 30; not given 20; different 0 |
+| Location | 0–30 | Preferred city 30; preferred state (2-letter code) 25; anywhere or not given 20; elsewhere 5 |
+| Timing | 0–15 | The start date fits the inquiry's timeline 15; "just exploring" or no timeline 8; no start date 10; doesn't fit 5 |
+| Housing | 0–5 | Wants housing help and a housing stipend is offered 5; wants it and none is offered 0; doesn't want it 5 |
+
+`rank` is 60% fit plus 40% opportunity score. Each row also has `fit_reasons`, the pay fields and the strike and crisis flags. Ward lists the openings on each clinician inquiry, sorted by best match or by highest pay. Sorted by pay, it shows the clinician's wage options. Strike assignments are labelled there.

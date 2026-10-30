@@ -19,6 +19,7 @@ import { TeamPage } from "./team.tsx";
 import { ConsentPage } from "./consent.tsx";
 import { PartnerDetail, PartnerList } from "./partners.tsx";
 import { JourneyList } from "./journeys.tsx";
+import { MatchingOpenings } from "./scores.tsx";
 import { formatDate, label, Link, type Save, type StaffDirectory, staffName, useSave } from "./shared.tsx";
 
 // --- Routing ---------------------------------------------------------------
@@ -457,6 +458,8 @@ function InquiryDetail({ id, navigate, staff }: { id: string; navigate: (to: str
             </div>
           ))}
       </dl>
+
+      {clinician && <MatchingOpenings inquiryId={inquiry.id} navigate={navigate} />}
 
       <h2>Notes</h2>
       <NoteForm inquiryId={inquiry.id} save={save} />
