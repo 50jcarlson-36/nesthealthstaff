@@ -393,3 +393,48 @@ Replies:
 
   Other columns are ignored and listed, so the partner can edit our export and send it back.
 - Staff read `partner_events` for the partner's recent updates.
+
+## Location and travel
+
+Nest stores the facility's location, not the candidate's: the "directions from" field in ward only builds a link and is never saved.
+
+### Database functions (staff, own session)
+
+- `set_job_location(p_job_id, p_expected_version, p_facility_address, p_facility_zip)` stores the facility's street address and 5-digit ZIP code in `job_internal_details`. Like the facility name, they never reach the public listing. The change bumps the job's version and is logged as an `updated` job event.
+- `add_travel_checklist(p_application_id)` adds the standard travel steps to the candidate's checklist with source `travel`. Each step is due a set number of days before the opening's start date:
+
+  | Step | Owner | Due |
+  |---|---|---|
+  | License valid in the assignment state (or compact privilege) | partner | 21 days before |
+  | Stipend eligibility (tax home) confirmed by the partner | partner | 14 days before |
+  | Housing arranged | candidate | 14 days before |
+  | Travel to the assignment planned | candidate | 7 days before |
+  | Commute and parking planned | candidate | 7 days before |
+  | First-day details sent | partner | 3 days before |
+
+  Steps whose titles are already on the checklist are skipped. The reply is `{added}`.
+- Staff can read `per_diem_rates`, which is public federal data. Only the service role writes to it.
+
+### `POST /functions/v1/travel-data`
+
+Called from ward with the staff member's session. The body is `{"job_id": "…"}`, and the caller must belong to the job's agency.
+
+- **What it returns:** the GSA per diem for the opening, from the GSA Per Diem API v2 (`api.gsa.gov`, key in `GSA_API_KEY`).
+  - It looks up the facility ZIP code when there is one, otherwise the city and state.
+  - The fiscal year is the one containing the start date: October to September, named for the year it ends.
+- **City matching:** a city lookup can return a nearby special-rate area as well as the standard rate. Only an area whose name includes the city is used; otherwise the standard rate applies.
+- **Caching:** results are cached in `per_diem_rates` and refetched after 30 days.
+
+Replies:
+- `200` `{rate, source: "cache" | "gsa"}`;
+- `400` bad request; `401` not signed in; `403` called from anywhere other than ward; `404` job not found;
+- `422` no rate for the location; `502` GSA unavailable; `503` `GSA_API_KEY` not set.
+
+`rate` has `fiscal_year`, `lookup_key`, `state`, `gsa_location`, `county`, `is_standard`, `lodging_by_month` (nightly dollars, January to December), `meals_daily` and `fetched_at`.
+
+### In ward
+
+The job page has a **Location and travel** card:
+- **Per diem:** nightly lodging for the start month and meals per day, plus weekly ceilings averaged over the assignment's months. When the partner terms set housing and meals stipends, it compares them against the ceilings. This is guidance only: the partner, as employer, sets stipends and decides who qualifies for them tax-free.
+- **Housing:** searches on Furnished Finder, Airbnb monthly stays and Zillow rentals for the opening's city. They're plain links; none of these sites shares data with Nest.
+- **Maps:** links to Google Maps and Apple Maps, and Google driving directions from an origin the recruiter types.

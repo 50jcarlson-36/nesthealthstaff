@@ -443,6 +443,10 @@ verify_jwt = false
 [functions.partner-api]
 verify_jwt = false
 
+# Staff only: identifies the caller with auth.getUser, like staff-invite.
+[functions.travel-data]
+verify_jwt = false
+
 # Called by the scheduler with OUTBOX_PROCESSOR_SECRET; anon JWTs must not work.
 [functions.process-outbox]
 verify_jwt = false

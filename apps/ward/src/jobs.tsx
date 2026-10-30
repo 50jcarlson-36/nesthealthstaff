@@ -7,6 +7,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { formatDate, label, Link, type Save, type StaffDirectory, staffName, useSave } from "./shared.tsx";
 import { type Consent, JobTermsCard, type JobTerms, type Partner, SubmissionPanel } from "./partners.tsx";
 import { type JourneyItem, JourneyPanel, type JourneySubmission } from "./journeys.tsx";
+import { type JobLocation, TravelCard } from "./travel.tsx";
 import {
   APPLICATION_STAGES,
   type ApplicationStage,
@@ -279,7 +280,7 @@ type ApplicationEvent = {
 
 export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navigate; staff: StaffDirectory }) {
   const [job, setJob] = useState<Job | null | undefined>(undefined);
-  const [internal, setInternal] = useState<JobInternal | null>(null);
+  const [internal, setInternal] = useState<(JobInternal & JobLocation) | null>(null);
   const [events, setEvents] = useState<JobEvent[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [appEvents, setAppEvents] = useState<ApplicationEvent[]>([]);
@@ -312,7 +313,7 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
           .order("created_at")
       : { data: [] };
     setJob(j.data as Job | null);
-    setInternal(d.data as JobInternal | null);
+    setInternal(d.data as (JobInternal & JobLocation) | null);
     setEvents((e.data ?? []) as JobEvent[]);
     setApplications(apps);
     setAppEvents((ae.data ?? []) as ApplicationEvent[]);
@@ -422,6 +423,7 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
             {internal.internal_notes && <><h3>Notes</h3><p className="note-body">{internal.internal_notes}</p></>}
           </div>
           <JobTermsCard job={job} terms={terms} partners={partners} save={saveJob} />
+          <TravelCard job={job} location={internal} terms={terms} save={saveJob} />
         </>
       )}
 

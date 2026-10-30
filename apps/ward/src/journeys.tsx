@@ -239,6 +239,12 @@ function Checklist({ applicationId, items, save }: { applicationId: string; item
         <input aria-label="Due date" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
         <button type="submit" disabled={saving}>Add</button>
       </form>
+      <p>
+        <button type="button" className="link" disabled={saving} onClick={() => run(() => supabase.rpc("add_travel_checklist", { p_application_id: applicationId }))}>
+          Add the travel steps
+        </button>
+        <span className="muted hint"> License, stipend eligibility, housing, travel, commute and first-day details, due before the start date.</span>
+      </p>
       {error && <p role="alert" className="error">{error}</p>}
     </details>
   );

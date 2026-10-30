@@ -102,6 +102,19 @@ check "consent with a malformed token" 404 "$(consent "$WARD" '{"token":"nope","
 check "consent with an unknown token" 404 "$(consent "$WARD" '{"token":"0000000000000000000000000000000000000000000000000000000000000000","action":"granted"}')"
 check "consent GET not allowed" 405 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' "$BASE/consent")"
 
+# --- travel-data ---------------------------------------------------------------
+# Staff only, from ward. A real lookup calls the GSA API (rate-limited with
+# DEMO_KEY), so it's checked by hand in ward rather than here.
+travel() { # origin [auth]
+  curl -s -m 120 -o /tmp/nhs-smoke-body -w '%{http_code}' -X POST "$BASE/travel-data" \
+    -H "Origin: $1" -H 'Content-Type: application/json' ${2:+-H "Authorization: $2"} -d '{"job_id":"00000000-0000-4000-8000-000000000000"}'
+}
+check "travel preflight from ward" 204 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X OPTIONS "$BASE/travel-data" -H "Origin: $WARD")"
+check "travel from the public site" 403 "$(travel "$ORIGIN")"
+check "travel without a session" 401 "$(travel "$WARD")"
+check "travel with a bad token" 401 "$(travel "$WARD" "Bearer not-a-token")"
+check "travel GET not allowed" 405 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' "$BASE/travel-data")"
+
 # --- partner-api ---------------------------------------------------------------
 # Server-to-server with a partner API key. Events that change data are covered
 # in tests/integration/connector.test.ts; this checks the HTTP layer with a

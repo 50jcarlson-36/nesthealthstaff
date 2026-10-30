@@ -266,3 +266,13 @@ code.secret { display: block; padding: 0.5rem; background: var(--surface); borde
 .checklist li.revoked { color: var(--muted); text-decoration: line-through; }
 .checklist.events li { flex-direction: column; gap: 0.1rem; }
 .import-preview td, .import-preview th { font-size: 0.85rem; text-align: left; }
+
+/* Location and travel */
+.card.travel { display: grid; gap: 0.6rem; }
+.card.travel h3 { margin: 0.5rem 0 0; }
+.card.travel .toolbar h3 { margin: 0; }
+.links { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0; }
+.fields.compact { padding: 0; margin: 0; }
+.stipend-check { margin: 0; padding-left: 1.1rem; font-size: 0.9rem; }
+.stipend-check li.over { color: var(--error); }
+.card.travel label.inline input { flex: 1; min-width: 12rem; }
