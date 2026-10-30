@@ -477,3 +477,40 @@ Open jobs rated for one clinician inquiry, up to 50 of them, best first. It retu
 | Housing | 0–5 | Wants housing help and a housing stipend is offered 5; wants it and none is offered 0; doesn't want it 5 |
 
 `rank` is 60% fit plus 40% opportunity score. Each row also has `fit_reasons`, the pay fields and the strike and crisis flags. Ward lists the openings on each clinician inquiry, sorted by best match or by highest pay. Sorted by pay, it shows the clinician's wage options. Strike assignments are labelled there.
+
+## Next-assignment planning
+
+### `assignment_endings` (view)
+
+Clinicians on assignment (journey stage `started` or `extended`, with an end date) whose assignment ends in the next 16 weeks or ended in the last week. It runs with the caller's rights.
+
+Columns:
+- the clinician, job and partner;
+- `assignment_end_on` and `days_left`;
+- `current_weekly_cents`: the same package rule as `opportunity_scores`;
+- `extension_bonus_cents` from the current terms;
+- the plan: `plan_status` (`not_started` when there's none), `plan_note`, `plan_version` and `next_job_id`.
+
+### Database functions (staff, own session)
+
+- **`set_next_assignment_plan(p_application_id, p_expected_version, p_status, p_note)`:**
+  - `p_status` is one of `not_started`, `extension_offered`, `extending`, `looking`, `next_lined_up` or `not_continuing`.
+  - Pass `null` as the version for the first save.
+  - Each change is logged as a `next_assignment_plan` application event.
+- **`next_assignment_options(p_application_id)`:** other open jobs, ranked 60% fit and 40% opportunity score.
+
+  | Part | Points | From |
+  |---|---|---|
+  | Specialty | 0–50 | Same 50, related 30, different 0 |
+  | State | 15–25 | Same state 25, another state 15 |
+  | Timing | 0–25 | Starts within 3 weeks after the current end date 25; within 2 months 12; later 5; starts before the current one ends 0; no start date 10 |
+
+  Each option has `pay_change_pct` against the current weekly package. Strike work is flagged, never promoted.
+- **`put_forward_for_next_assignment(p_application_id, p_job_id)`:**
+  - Creates an application on another open job with the clinician's contact details copied from the current one.
+  - Links it to the plan, which moves to `looking` unless it was already `extending`, `next_lined_up` or `not_continuing`.
+  - Submitting the clinician to a partner still needs their approval.
+
+### Journey overview
+
+Once the plan is settled (`extending`, `next_lined_up` or `not_continuing`), the next action for an assignment ending within 6 weeks changes from "Plan the next assignment" to "Check in during the assignment". `journey_overview` also gains `plan_status`.
