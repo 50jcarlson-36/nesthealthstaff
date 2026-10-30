@@ -45,7 +45,7 @@ STATUS.md has the verification results. The CLI can run these steps from this re
      EMAIL_PROVIDER=dev
    ```
    Keep `EMAIL_PROVIDER=dev` until Resend is set up (see below).
-5. **Deploy functions:** `npx supabase functions deploy intake apply process-outbox staff-invite`. `config.toml` already disables JWT verification for all four; each function does its own checks (`staff-invite` identifies the caller with `auth.getUser`). `staff-invite` accepts requests only from `ADMIN_PORTAL_URL`, which defaults to `https://ward.nesthealthstaff.com`. `apply` uses the same `INTAKE_ORGANIZATION_SLUG`, `INTAKE_IP_HASH_SECRET` and `ALLOWED_ORIGINS` as `intake`.
+5. **Deploy functions:** `npx supabase functions deploy intake apply process-outbox staff-invite consent`. `config.toml` already disables JWT verification for all five; each function does its own checks (`staff-invite` identifies the caller with `auth.getUser`). `staff-invite` accepts requests only from `ADMIN_PORTAL_URL`, which defaults to `https://ward.nesthealthstaff.com`. `apply` uses the same `INTAKE_ORGANIZATION_SLUG`, `INTAKE_IP_HASH_SECRET` and `ALLOWED_ORIGINS` as `intake`.
 6. **Schedule the outbox worker** with `pg_cron` and `pg_net` (enable both extensions in the dashboard). Store the secret in Vault rather than in the job text:
    ```sql
    select vault.create_secret('<OUTBOX_PROCESSOR_SECRET>', 'outbox_processor_secret');

@@ -144,6 +144,36 @@ export function renderTemplate(
       };
     }
 
+    case "submission_consent_request": {
+      // The link carries the token in its fragment, so it never reaches a
+      // server log. The outbox removes the token once this email is sent.
+      const partner = str(data, "partner_name", "a partner agency");
+      const job = str(data, "job_title", "an opening");
+      const place = [str(data, "city", ""), str(data, "state", "")].filter(Boolean).join(", ");
+      const token = str(data, "token", "");
+      if (!/^[0-9a-f]{64}$/.test(token)) throw new Error("submission_consent_request needs its link token");
+      const strike = data.is_strike === true;
+      const expires = str(data, "expires_at", "");
+      const expiresOn = expires
+        ? new Date(expires).toLocaleDateString("en-US", { dateStyle: "long", timeZone: "UTC" })
+        : "";
+      const lines = [
+        `${agency} would like to submit you to ${partner} for the ${job} opening${place ? ` in ${place}` : ""}.`,
+        ...(strike ? ["This is a strike assignment. Please read the details before you answer."] : []),
+        "Nothing is sent to them until you approve. Review the details and approve or decline using the link below.",
+        ...(expiresOn ? [`The link expires on ${expiresOn}.`] : []),
+        "If you didn't expect this, you can ignore this email.",
+      ];
+      const href = `${portals.adminPortal}/consent#${token}`;
+      return {
+        subject: strike
+          ? `Approve your submission (strike assignment): ${oneLine(job)}`
+          : `Approve your submission: ${oneLine(job)}`,
+        text: `${lines.join("\n\n")}\n\n${href}`,
+        html: layout(lines, { href, label: "Review and answer" }),
+      };
+    }
+
     default:
       throw new Error(`Unknown notification template: ${template}`);
   }

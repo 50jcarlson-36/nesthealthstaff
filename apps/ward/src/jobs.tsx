@@ -5,6 +5,7 @@ import { EmptyState } from "./brand.tsx";
 
 import { type FormEvent, useEffect, useState } from "react";
 import { formatDate, label, Link, type Save, type StaffDirectory, staffName, useSave } from "./shared.tsx";
+import { type Consent, JobTermsCard, type JobTerms, type Partner, type PartnerSubmission, SubmissionPanel } from "./partners.tsx";
 import {
   APPLICATION_STAGES,
   type ApplicationStage,
@@ -281,15 +282,23 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
   const [events, setEvents] = useState<JobEvent[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [appEvents, setAppEvents] = useState<ApplicationEvent[]>([]);
+  const [terms, setTerms] = useState<JobTerms | null>(null);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [consents, setConsents] = useState<Consent[]>([]);
+  const [submissions, setSubmissions] = useState<PartnerSubmission[]>([]);
   const [editing, setEditing] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
 
   async function load() {
-    const [j, d, e, a] = await Promise.all([
+    const [j, d, e, a, t, p, c, s] = await Promise.all([
       supabase.from("jobs").select("*").eq("id", id).maybeSingle(),
       supabase.from("job_internal_details").select("*").eq("job_id", id).maybeSingle(),
       supabase.from("job_events").select("id, event_type, from_status, to_status, actor_id, details, created_at").eq("job_id", id).order("created_at"),
       supabase.from("job_applications").select("*").eq("job_id", id).order("created_at", { ascending: false }),
+      supabase.from("job_partner_terms").select("*").eq("job_id", id).maybeSingle(),
+      supabase.from("partners").select("*").order("name"),
+      supabase.from("submission_consents").select("id, application_id, partner_id, status, includes_strike, consent_version, requested_at, expires_at, responded_at").eq("job_id", id),
+      supabase.from("partner_submissions").select("id, application_id, partner_id, status, partner_candidate_reference, submitted_at, attribution_expires_on, status_reason, version").eq("job_id", id),
     ]);
     const apps = (a.data ?? []) as JobApplication[];
     const ae = apps.length
@@ -304,6 +313,10 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
     setEvents((e.data ?? []) as JobEvent[]);
     setApplications(apps);
     setAppEvents((ae.data ?? []) as ApplicationEvent[]);
+    setTerms(t.data as JobTerms | null);
+    setPartners((p.data ?? []) as Partner[]);
+    setConsents((c.data ?? []) as Consent[]);
+    setSubmissions((s.data ?? []) as PartnerSubmission[]);
   }
 
   // thing names the record in conflict messages ("job" or "application").
@@ -404,6 +417,7 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
             {internal.rate_notes && <><h3>Rates</h3><p className="note-body">{internal.rate_notes}</p></>}
             {internal.internal_notes && <><h3>Notes</h3><p className="note-body">{internal.internal_notes}</p></>}
           </div>
+          <JobTermsCard job={job} terms={terms} partners={partners} save={saveJob} />
         </>
       )}
 
@@ -425,7 +439,16 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
               staff={staff}
               navigate={navigate}
               save={saveApplication}
-            />
+            >
+              <SubmissionPanel
+                application={a}
+                terms={terms}
+                partner={partners.find((x) => x.id === terms?.partner_id)}
+                consents={consents.filter((x) => x.application_id === a.id)}
+                submission={submissions.filter((x) => x.application_id === a.id).sort((x, y) => (x.status === "withdrawn" ? 1 : 0) - (y.status === "withdrawn" ? 1 : 0))[0]}
+                save={saveApplication}
+              />
+            </ApplicationCard>
           ))}
         </ul>
       )}
@@ -551,12 +574,14 @@ function ApplicationCard({
   staff,
   navigate,
   save,
+  children,
 }: {
   application: JobApplication;
   events: ApplicationEvent[];
   staff: StaffDirectory;
   navigate: Navigate;
   save: Save;
+  children?: React.ReactNode;
 }) {
   const [stage, setStage] = useState<ApplicationStage>(a.stage);
   const [reason, setReason] = useState("");
@@ -585,7 +610,7 @@ function ApplicationCard({
             <a href={`mailto:${a.email}`}>{a.email}</a>
             {a.phone && <> · <a href={`tel:${a.phone}`}>{a.phone}</a></>}
             {" · "}
-            {a.source === "website" ? "Applied on the website" : "Added by a recruiter"} {formatDate(a.created_at)}
+            {a.source === "website" ? "Applied on the website" : a.source === "portal" ? "Applied through the portal" : "Added by a recruiter"} {formatDate(a.created_at)}
           </p>
           {a.stage_reason && <p className="muted">Reason: {a.stage_reason}</p>}
         </div>
@@ -609,6 +634,7 @@ function ApplicationCard({
           {error && <p role="alert" className="error">{error}</p>}
         </form>
       </div>
+      {children}
       <details>
         <summary className="muted">History</summary>
         <ol className="history">

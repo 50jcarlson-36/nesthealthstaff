@@ -147,7 +147,7 @@ export type JobApplication = {
   id: string;
   job_id: string;
   inquiry_id: string | null;
-  source: "website" | "recruiter";
+  source: "website" | "recruiter" | "portal";
   stage: ApplicationStage;
   stage_reason: string | null;
   full_name: string;

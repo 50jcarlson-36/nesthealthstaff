@@ -243,3 +243,43 @@ Called with the admin's own session through PostgREST, except `invite_staff`.
 Errors: `PT400` invalid input (message safe to show), `PT403` not an admin (from `invite_staff`), `PT404` not found or another agency's. Admins can read their agency's `staff_invitations`; recruiters can't. Every invitation, acceptance, revocation, role change and removal writes an `audit_events` row.
 
 The `staff_invitation` email names the agency, the role, the inviter and the expiry date, and links to ward's sign-in page.
+
+## Partners, consent and attribution (recruiting-only model)
+
+Nest sources and screens candidates and submits them to **partner agencies'** authorized openings. The partner employs, credentials and pays the clinician and contracts with the facility. Nest stores no credential documents and no payroll data.
+
+### Partners and opening terms (staff, own session)
+
+| Function | Who | Arguments | Notes |
+|---|---|---|---|
+| `create_partner` | admin | `p_organization_id`, `p_partner` | Fields: name, status (`prospect`, `applying`, `active`, `paused`, `ended`), contact, `agreement_signed_on`, eligibility, fee terms, payment timing, extension/cancellation/refund terms, `attribution_days` (1–730), duplicate rules, `may_advertise`, advertising terms, `data_transfer_method` (`manual`, `csv`, `api`, `ats_export`), notes. Active needs an agreement date; advertising needs recorded terms. |
+| `update_partner` | admin | `p_partner_id`, `p_expected_version`, `p_partner` | `PT409` on a stale version |
+| `set_job_terms` | staff | `p_job_id`, `p_expected_version` (the job's), `p_terms` | Partner and their reference, priority (`normal`, `high`, `critical`), strike (`is_strike`, dates, union, notes), pay in cents (hourly, weekly gross, housing and meals stipends, crisis rate), incentives in cents (sign-on, completion, extension, referral, Nest's own). Bumps the job's version. |
+
+Staff read `partners`, `job_partner_terms`, `partner_submissions` and `submission_consents` (without `token_hash`) for their agency.
+
+**Job board rule:** `list_public_jobs` now also returns `is_strike`, and shows a partner's opening only while that partner is `active` and `may_advertise`. A website application to an opening the public can't see gets `job_not_found`. Pay and incentives are never public.
+
+### Consent
+
+| Function | Who | Notes |
+|---|---|---|
+| `request_submission_consent(p_application_id)` | staff | Needs an active partner on the opening. Snapshots the exact wording (`submission-v1`, or `submission-strike-v1` for a strike assignment, which names the strike and its dates), stores only the SHA-256 of a 64-hex link token, and queues the `submission_consent_request` email with the token. A new request revokes the pending one and cancels its unsent email. Expires after 7 days. |
+| `revoke_submission_consent(p_consent_id)` | staff | Pending requests only |
+| `view_submission_consent(p_token)` | service role | Returns the wording, partner, job title and city; nothing else about the candidate |
+| `respond_submission_consent(p_token, p_decision, p_client_hash)` | service role | `granted` or `declined`, once. A second answer returns the first with `already_answered: true`. |
+
+The token is removed from the outbox row as soon as the email is sent, fails or is cancelled, so admins reading the outbox can't use a link. The email links to `<ward>/consent#<token>`: the fragment never reaches a server.
+
+**`POST /functions/v1/consent`** (public, ward origin only): body `{"token": "<64 hex>", "action": "view" | "granted" | "declined"}`, at most 1 KB. Replies `200` with the consent or the answer's status, `404` for an unknown or malformed link, `403` from another origin, `405` for other methods.
+
+### Submissions and attribution
+
+| Function | Who | Notes |
+|---|---|---|
+| `submit_to_partner(p_application_id, p_partner_candidate_reference)` | staff | Needs an active partner with `attribution_days` set, and a granted consent for this application and partner (one that names the strike for a strike assignment). Records the submission with `attribution_expires_on` = today + the partner's period, moves the application to `submitted` if it was earlier, and returns `prior_live_submissions`: how many live submissions of the same person to the same partner are still inside attribution. One live submission per application. |
+| `update_partner_submission(p_submission_id, p_expected_version, p_status, p_reason)` | staff | `withdrawn` or `partner_duplicate`, with a reason |
+
+Every request, answer, cancellation and submission writes an `application_events` row.
+
+**Pending legal review:** the consent wording, especially the strike paragraph, and whether it should name the legal entity (Nest Staffing, LLC) rather than the agency's display name.

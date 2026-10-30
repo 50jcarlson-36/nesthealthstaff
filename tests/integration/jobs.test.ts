@@ -165,8 +165,8 @@ describe("job status and the public listing", () => {
       expect(text).not.toContain(secret);
     }
     expect(Object.keys(data[0]).sort()).toEqual([
-      "city", "duration_weeks", "employment_type", "hours_per_week", "id", "openings", "public_description",
-      "published_at", "shift", "specialty", "start_date", "state", "title",
+      "city", "duration_weeks", "employment_type", "hours_per_week", "id", "is_strike", "openings",
+      "public_description", "published_at", "shift", "specialty", "start_date", "state", "title",
     ]);
 
     // Another agency's board doesn't include these jobs.

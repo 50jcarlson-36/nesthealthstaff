@@ -435,6 +435,10 @@ verify_jwt = false
 [functions.staff-invite]
 verify_jwt = false
 
+# Public: the consent link token is the credential.
+[functions.consent]
+verify_jwt = false
+
 # Called by the scheduler with OUTBOX_PROCESSOR_SECRET; anon JWTs must not work.
 [functions.process-outbox]
 verify_jwt = false

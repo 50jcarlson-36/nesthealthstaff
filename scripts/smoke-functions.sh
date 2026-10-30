@@ -89,6 +89,19 @@ check "invite without a session" 401 "$(invite "$WARD")"
 check "invite with a bad token" 401 "$(invite "$WARD" "Bearer not-a-token")"
 check "invite GET not allowed" 405 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' "$BASE/staff-invite")"
 
+# --- consent -------------------------------------------------------------------
+# Public, from ward's /consent page only. Answering a real request is covered
+# in tests/integration/partners.test.ts.
+consent() { # origin body
+  curl -s -m 120 -o /tmp/nhs-smoke-body -w '%{http_code}' -X POST "$BASE/consent" \
+    -H "Origin: $1" -H 'Content-Type: application/json' -d "$2"
+}
+check "consent preflight from ward" 204 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X OPTIONS "$BASE/consent" -H "Origin: $WARD")"
+check "consent from another site" 403 "$(consent "https://evil.example" '{"token":"x","action":"view"}')"
+check "consent with a malformed token" 404 "$(consent "$WARD" '{"token":"nope","action":"view"}')"
+check "consent with an unknown token" 404 "$(consent "$WARD" '{"token":"0000000000000000000000000000000000000000000000000000000000000000","action":"granted"}')"
+check "consent GET not allowed" 405 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' "$BASE/consent")"
+
 check "outbox without secret" 401 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X POST "$BASE/process-outbox")"
 check "outbox with secret" 200 "$(curl -s -m 120 -o /tmp/nhs-smoke-body -w '%{http_code}' -X POST "$BASE/process-outbox" -H "x-outbox-secret: $SECRET")"
 echo "outbox summary: $(cat /tmp/nhs-smoke-body)"
