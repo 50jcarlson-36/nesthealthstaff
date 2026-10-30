@@ -283,3 +283,31 @@ The token is removed from the outbox row as soon as the email is sent, fails or 
 Every request, answer, cancellation and submission writes an `application_events` row.
 
 **Pending legal review:** the consent wording, especially the strike paragraph, and whether it should name the legal entity (Nest Staffing, LLC) rather than the agency's display name.
+
+## Candidate journeys
+
+One journey per open application on a partner opening: where the candidate stands, what's missing, and what should happen next.
+
+**Stages** (on `partner_submissions.stage`): `submitted`, `partner_review`, `interview`, `offer`, `offer_accepted`, `credentialing`, `cleared_to_start`, `started`, `extended`, `completed`, `declined`, `cancelled`. Before a submission exists, the journey follows the consent (not asked, awaiting approval, approved).
+
+| Function | Who | Notes |
+|---|---|---|
+| `update_journey_stage(p_submission_id, p_expected_version, p_stage, p_note, p_start_on, p_end_on)` | staff | `declined` and `cancelled` need a reason; `started`, `extended` and `completed` need an assignment start date. Dates are kept when not given. Moves the application to `offered` (offer through cleared to start) or `hired` (started onward), logging both changes. |
+| `add_journey_item(p_application_id, p_title, p_owner, p_due_on, p_note)` | staff | Owner is `nest`, `partner` or `candidate`. Records that an item exists and its status, never the document. |
+| `set_journey_item_status(p_item_id, p_expected_version, p_status, p_note)` | staff | `received`, `waived` (needs a reason) or back to `needed` |
+| `set_partner_requirements(p_partner_id, p_requirements)` | admin | Replaces the partner's standard items: `[{title, owner, due_days_before_start}]`, up to 50. They're copied onto a candidate's checklist when the candidate is submitted, due that many days before the job's start date, skipping titles already on the checklist. |
+
+**`journey_overview`** (view, staff's own agency through RLS): per open application on a partner opening, the partner, strike and priority flags, consent and journey stage, assignment dates, `missing_items`, `next_action`, `next_action_due` and `overdue` (the due date has passed or a needed item is past due). Next actions and their due dates:
+
+| Where it stands | Next action | Due |
+|---|---|---|
+| Not asked / expired / revoked | Ask the candidate for approval (again) | today |
+| Approval pending | Waiting for the candidate's approval | when the link expires |
+| Approved | Record the submission (or ask again if a strike consent is missing) | today |
+| Submitted | Chase the partner for a review | 3 days after the stage changed |
+| Partner review | Chase the partner for a decision | 5 days |
+| Interview | Get interview feedback | 2 days |
+| Offer / offer accepted | Confirm the offer / start credentialing | 2 days |
+| Credentialing | Collect N missing items, or confirm clearance | earliest item due, else 5 days |
+| Cleared to start | Check in before the start date | 3 days before start |
+| Started / extended | Plan the next assignment (within 6 weeks of the end), else check in | 4 weeks before the end, else every 2 weeks |

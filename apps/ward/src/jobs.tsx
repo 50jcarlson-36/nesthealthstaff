@@ -5,7 +5,8 @@ import { EmptyState } from "./brand.tsx";
 
 import { type FormEvent, useEffect, useState } from "react";
 import { formatDate, label, Link, type Save, type StaffDirectory, staffName, useSave } from "./shared.tsx";
-import { type Consent, JobTermsCard, type JobTerms, type Partner, type PartnerSubmission, SubmissionPanel } from "./partners.tsx";
+import { type Consent, JobTermsCard, type JobTerms, type Partner, SubmissionPanel } from "./partners.tsx";
+import { type JourneyItem, JourneyPanel, type JourneySubmission } from "./journeys.tsx";
 import {
   APPLICATION_STAGES,
   type ApplicationStage,
@@ -285,12 +286,13 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
   const [terms, setTerms] = useState<JobTerms | null>(null);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [consents, setConsents] = useState<Consent[]>([]);
-  const [submissions, setSubmissions] = useState<PartnerSubmission[]>([]);
+  const [submissions, setSubmissions] = useState<JourneySubmission[]>([]);
+  const [items, setItems] = useState<JourneyItem[]>([]);
   const [editing, setEditing] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
 
   async function load() {
-    const [j, d, e, a, t, p, c, s] = await Promise.all([
+    const [j, d, e, a, t, p, c, s, ji] = await Promise.all([
       supabase.from("jobs").select("*").eq("id", id).maybeSingle(),
       supabase.from("job_internal_details").select("*").eq("job_id", id).maybeSingle(),
       supabase.from("job_events").select("id, event_type, from_status, to_status, actor_id, details, created_at").eq("job_id", id).order("created_at"),
@@ -298,7 +300,8 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
       supabase.from("job_partner_terms").select("*").eq("job_id", id).maybeSingle(),
       supabase.from("partners").select("*").order("name"),
       supabase.from("submission_consents").select("id, application_id, partner_id, status, includes_strike, consent_version, requested_at, expires_at, responded_at").eq("job_id", id),
-      supabase.from("partner_submissions").select("id, application_id, partner_id, status, partner_candidate_reference, submitted_at, attribution_expires_on, status_reason, version").eq("job_id", id),
+      supabase.from("partner_submissions").select("id, application_id, partner_id, status, partner_candidate_reference, submitted_at, attribution_expires_on, status_reason, version, stage, stage_updated_at, stage_note, assignment_start_on, assignment_end_on").eq("job_id", id),
+      supabase.from("journey_items").select("id, application_id, title, owner, status, due_on, note, source, version, job_applications!inner(job_id)").eq("job_applications.job_id", id).order("created_at"),
     ]);
     const apps = (a.data ?? []) as JobApplication[];
     const ae = apps.length
@@ -316,7 +319,8 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
     setTerms(t.data as JobTerms | null);
     setPartners((p.data ?? []) as Partner[]);
     setConsents((c.data ?? []) as Consent[]);
-    setSubmissions((s.data ?? []) as PartnerSubmission[]);
+    setSubmissions((s.data ?? []) as JourneySubmission[]);
+    setItems((ji.data ?? []) as unknown as JourneyItem[]);
   }
 
   // thing names the record in conflict messages ("job" or "application").
@@ -448,6 +452,14 @@ export function JobDetail({ id, navigate, staff }: { id: string; navigate: Navig
                 submission={submissions.filter((x) => x.application_id === a.id).sort((x, y) => (x.status === "withdrawn" ? 1 : 0) - (y.status === "withdrawn" ? 1 : 0))[0]}
                 save={saveApplication}
               />
+              {terms?.partner_id && (
+                <JourneyPanel
+                  applicationId={a.id}
+                  submission={submissions.find((x) => x.application_id === a.id && x.status === "submitted")}
+                  items={items.filter((x) => x.application_id === a.id)}
+                  save={saveApplication}
+                />
+              )}
             </ApplicationCard>
           ))}
         </ul>

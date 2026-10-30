@@ -240,3 +240,13 @@ article>h2{margin-top:28px}
 .action.submission .row input { flex: 1; }
 .consent-page .card.consent { max-width: 36rem; display: grid; gap: 0.75rem; }
 .consent-page .card.consent .row { gap: 1rem; align-items: center; }
+
+/* Journeys */
+tr.overdue td:first-child { box-shadow: inset 3px 0 0 var(--error); }
+.action.journey { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.action.journey p { font-size: 0.85rem; }
+.action.journey .row { flex-wrap: wrap; }
+.action.journey .row input:not([type="date"]) { flex: 1; min-width: 10rem; }
+.checklist { list-style: none; padding: 0; margin: 0.5rem 0; display: grid; gap: 0.4rem; }
+.checklist li { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; font-size: 0.85rem; }
+.checklist li.item-received, .checklist li.item-waived { color: var(--muted); }

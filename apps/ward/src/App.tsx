@@ -18,6 +18,7 @@ import { JobDetail, JobList, JobNew } from "./jobs.tsx";
 import { TeamPage } from "./team.tsx";
 import { ConsentPage } from "./consent.tsx";
 import { PartnerDetail, PartnerList } from "./partners.tsx";
+import { JourneyList } from "./journeys.tsx";
 import { formatDate, label, Link, type Save, type StaffDirectory, staffName, useSave } from "./shared.tsx";
 
 // --- Routing ---------------------------------------------------------------
@@ -200,7 +201,7 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
   const adminOf = memberships
     .filter((m) => m.role === "admin")
     .map((m) => ({ id: m.organization_id, name: m.organizations?.name ?? "Your agency" }));
-  const section = path.startsWith("/jobs") ? "jobs" : path.startsWith("/partners") ? "partners" : path === "/team" && adminOf.length > 0 ? "team" : "inquiries";
+  const section = path.startsWith("/jobs") ? "jobs" : path.startsWith("/partners") ? "partners" : path === "/journeys" ? "journeys" : path === "/team" && adminOf.length > 0 ? "team" : "inquiries";
 
   return (
     <>
@@ -212,13 +213,14 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
         <nav className="tabs" aria-label="Workspace navigation">
           <Link to="/" navigate={navigate}><span aria-current={section === "inquiries" ? "page" : undefined}>◉ <b>Inquiries</b><i>↗</i></span></Link>
           <Link to="/jobs" navigate={navigate}><span aria-current={section === "jobs" ? "page" : undefined}>▦ <b>Opportunities</b><i>↗</i></span></Link>
+          <Link to="/journeys" navigate={navigate}><span aria-current={section === "journeys" ? "page" : undefined}>↝ <b>Journeys</b><i>↗</i></span></Link>
           <Link to="/partners" navigate={navigate}><span aria-current={section === "partners" ? "page" : undefined}>◇ <b>Partners</b><i>↗</i></span></Link>
           {adminOf.length > 0 && <Link to="/team" navigate={navigate}><span aria-current={section === "team" ? "page" : undefined}>◎ <b>Team</b><i>↗</i></span></Link>}
         </nav>
         <div className="sidebar-note"><p className="eyebrow">A PLACE TO BELONG</p><p>Every next chapter starts with a conversation.</p><a href="https://nesthealthstaff.com" target="_blank" rel="noreferrer">Visit Nest website ↗</a></div>
         <div className="account"><strong>{memberships.map(m=>label(m.role)).join(", ")}</strong><span>{session.user.email}</span><button className="link" onClick={signOut}>Sign out ↗</button></div>
       </aside>
-      <div className="workspace-body"><header className="topbar"><span>Nest Health Staff <span className="breadcrumb">/ {section === "jobs" ? "Opportunities" : section === "team" ? "Team" : section === "partners" ? "Partners" : "Inquiries"}</span></span><span className="private-badge">● Private workspace</span></header>
+      <div className="workspace-body"><header className="topbar"><span>Nest Health Staff <span className="breadcrumb">/ {section === "jobs" ? "Opportunities" : section === "team" ? "Team" : section === "partners" ? "Partners" : section === "journeys" ? "Journeys" : "Inquiries"}</span></span><span className="private-badge">● Private workspace</span></header>
       <main className="page" id="workspace">
         {inquiryMatch ? (
           <InquiryDetail id={inquiryMatch[1]} navigate={navigate} staff={staff} />
@@ -232,6 +234,8 @@ function StaffGate({ session, path, navigate }: { session: Session; path: string
           <JobList navigate={navigate} />
         ) : partnerMatch ? (
           <PartnerDetail id={partnerMatch[1]} navigate={navigate} memberships={memberships} />
+        ) : path === "/journeys" ? (
+          <JourneyList navigate={navigate} userId={session.user.id} />
         ) : path === "/partners" ? (
           <PartnerList navigate={navigate} memberships={memberships} />
         ) : path === "/team" && adminOf.length > 0 ? (
