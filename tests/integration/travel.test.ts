@@ -91,12 +91,14 @@ describe("travel checklist", () => {
 
     const { data: items } = await service.from("journey_items").select("title, owner, due_on, source").eq("application_id", app!.id).order("created_at");
     expect(items![0]).toMatchObject({ title: "housing arranged", source: "manual" });
-    expect(items!.slice(1)).toEqual([
+    // Added in one statement, so they share a created_at: compare by title.
+    const byTitle = (x: { title: string }, y: { title: string }) => x.title.localeCompare(y.title);
+    expect(items!.slice(1).sort(byTitle)).toEqual([
       { title: "License valid in the assignment state (or compact privilege)", owner: "partner", due_on: daysFromNow(19), source: "travel" },
       { title: "Stipend eligibility (tax home) confirmed by the partner", owner: "partner", due_on: daysFromNow(26), source: "travel" },
       { title: "Travel to the assignment planned", owner: "candidate", due_on: daysFromNow(33), source: "travel" },
       { title: "Commute and parking planned", owner: "candidate", due_on: daysFromNow(33), source: "travel" },
       { title: "First-day details sent (address, time, who to ask for)", owner: "partner", due_on: daysFromNow(37), source: "travel" },
-    ]);
+    ].sort(byTitle));
   });
 });

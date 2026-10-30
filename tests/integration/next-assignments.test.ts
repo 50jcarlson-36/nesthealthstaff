@@ -94,7 +94,7 @@ describe("plans", () => {
     expect(await overview(applicationId)).toMatchObject({ next_action: "Check in during the assignment", plan_status: "extending" });
     expect(await ending(applicationId)).toMatchObject({ plan_status: "extending", plan_version: 2, plan_note: null });
 
-    const { data: events } = await service.from("application_events").select("details").eq("application_id", applicationId).eq("event_type", "next_assignment_plan");
+    const { data: events } = await service.from("application_events").select("details").eq("application_id", applicationId).eq("event_type", "next_assignment_plan").order("id");
     expect(events!.map((e) => (e.details as { status: string }).status)).toEqual(["extension_offered", "extending"]);
   });
 });

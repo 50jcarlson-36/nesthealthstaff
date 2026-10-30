@@ -126,7 +126,7 @@ describe("journey stages", () => {
     expect(a!.stage).toBe("hired");
     expect(await overview(app)).toMatchObject({ next_action: "Plan the next assignment", next_action_due: daysFromNow(2), overdue: false });
 
-    const { data: events } = await service.from("application_events").select("event_type, details").eq("application_id", app).eq("event_type", "journey_stage_changed");
+    const { data: events } = await service.from("application_events").select("event_type, details").eq("application_id", app).eq("event_type", "journey_stage_changed").order("id");
     expect(events!.map((e) => (e.details as { to: string }).to)).toEqual(["interview", "offer", "started"]);
   });
 
