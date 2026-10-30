@@ -1,0 +1,16 @@
+// Ward back office: a static single-page app served by Workers static assets.
+// There is no Worker script; all data access goes from the browser to Supabase
+// with the signed-in user's session, and RLS decides what they can read.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nest-ward",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  // On deploy, Cloudflare creates the DNS record and certificate for this host
+  // in the nesthealthstaff.com zone.
+  "routes": [{ "pattern": "ward.nesthealthstaff.com", "custom_domain": true }],
+  "workers_dev": false
+}
