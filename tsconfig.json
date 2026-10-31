@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"]
+  },
+  // Edge Function entry points (index.ts) use Deno globals and npm: specifiers;
+  // check them with `deno check`. Shared modules and tests are checked here.
+  "include": ["supabase/functions/_shared/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+}
