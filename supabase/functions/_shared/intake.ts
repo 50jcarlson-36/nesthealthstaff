@@ -2,8 +2,11 @@
 //
 // Accepts the payload the live website already sends to /api/leads:
 //   { name, email, phone, specialty, location, timeline, organization,
-//     website (honeypot), consent: boolean, type: "nurse" | "employer" }
+//     website (honeypot), consent: boolean, type: "nurse" | "employer",
+//     jobId?, referralCode? }
 // plus optional facility and housing fields from the intake specification.
+// jobId and referralCode come from the page, not the visitor, so a value in the
+// wrong shape is dropped rather than shown back as an error.
 // Pure TypeScript with no runtime imports, so Deno and Vitest share it.
 
 export const CONSENT_VERSION = "2026-10-website-v1";
@@ -45,6 +48,8 @@ export type NormalizedInquiry = {
   desired_end_date: string | null;
   staffing_requirements: string | null;
   consent_version: string;
+  job_id: string | null;
+  referral_code: string | null;
 };
 
 export type ParseResult =
@@ -54,6 +59,8 @@ export type ParseResult =
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const REFERRAL_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 class InvalidField extends Error {}
 
@@ -85,6 +92,15 @@ function date(body: Record<string, unknown>, key: string, label: string): string
     throw new InvalidField(`${label} must be a date (YYYY-MM-DD).`);
   }
   return value;
+}
+
+// The first of `keys` that is a string matching `pattern`, trimmed; else null.
+function optional(body: Record<string, unknown>, keys: string[], pattern: RegExp): string | null {
+  for (const key of keys) {
+    const value = body[key];
+    if (typeof value === "string" && pattern.test(value.trim())) return value.trim();
+  }
+  return null;
 }
 
 function flag(value: unknown): boolean {
@@ -159,6 +175,8 @@ export function parseIntake(raw: unknown): ParseResult {
         desired_end_date: desiredEnd,
         staffing_requirements: text(body, ["staffing_requirements"], 2000, "Staffing requirements"),
         consent_version: CONSENT_VERSION,
+        job_id: inquiryType === "clinician" ? optional(body, ["jobId", "job_id"], UUID_PATTERN)?.toLowerCase() ?? null : null,
+        referral_code: optional(body, ["referralCode", "referral_code"], REFERRAL_PATTERN),
       },
     };
   } catch (error) {

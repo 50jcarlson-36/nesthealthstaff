@@ -371,7 +371,7 @@ function InquiryDetail({ id, navigate, staff }: { id: string; navigate: (to: str
 
   async function load() {
     const [i, e, n] = await Promise.all([
-      supabase.from("inquiries").select("*").eq("id", id).maybeSingle(),
+      supabase.from("inquiries").select("*, job:jobs(title)").eq("id", id).maybeSingle(),
       supabase
         .from("inquiry_events")
         .select("id, event_type, from_stage, to_stage, actor_id, details, created_at")
@@ -427,8 +427,10 @@ function InquiryDetail({ id, navigate, staff }: { id: string; navigate: (to: str
           ["Dates", [inquiry.desired_start_date, inquiry.desired_end_date].filter(Boolean).join(" → ")],
           ["Requirements", inquiry.staffing_requirements],
         ] as [string, React.ReactNode][])),
+    ["Asked about", inquiry.job_id && <Link to={`/jobs/${inquiry.job_id}`} navigate={navigate}>{inquiry.job?.title ?? "A job"}</Link>],
     ["Follow up on", inquiry.follow_up_on],
     ["Source", inquiry.source],
+    ["Referral code", inquiry.referral_code],
     ["Consent", `${formatDate(inquiry.consent_given_at)} (${inquiry.consent_version})`],
     ["Closed reason", inquiry.closed_reason],
   ];

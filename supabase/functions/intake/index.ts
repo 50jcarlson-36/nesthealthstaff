@@ -1,6 +1,8 @@
 // POST /functions/v1/intake: public clinician and facility inquiries.
 //
 // Request body matches what the live website already sends to /api/leads.
+// A clinician inquiry carrying the jobId of an advertised, open job is also an
+// application on that job; the referral code is kept with both.
 // Responses follow that form's contract: any 2xx means saved, and errors are
 // {"error": "<message safe to show the visitor>"}.
 
@@ -78,8 +80,8 @@ Deno.serve(async (request) => {
     return reply(500, { error: "We could not save your inquiry. Please try again." }, origin, requestId);
   }
 
-  const { status, inquiry_id: reference } = data as { status: string; inquiry_id?: string };
-  log(requestId, status);
+  const { status, inquiry_id: reference, application_id } = data as { status: string; inquiry_id?: string; application_id?: string };
+  log(requestId, status, application_id ? { applied: true } : {});
   switch (status) {
     case "created":
       return reply(201, { ok: true, reference }, origin, requestId);

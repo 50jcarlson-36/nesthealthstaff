@@ -29,6 +29,8 @@ frontend can switch endpoints without changing the form.
 | `website` | string | no | Honeypot. Any non-empty value is answered with `200 {"ok":true}` and nothing is saved. |
 | `housing_assistance_requested` | boolean | no | Not on the live form yet. |
 | `staffing_type`, `headcount`, `desired_start_date`, `desired_end_date`, `staffing_requirements` | | no | Facility fields from the intake specification. They are not on the live form yet. Dates use `YYYY-MM-DD`. Headcount must be 1–1000. |
+| `jobId` | string | no | Also `job_id`. The live form sends the job the visitor was looking at. A clinician inquiry about an advertised, open job also becomes an application on it (see below). Anything that isn't a UUID, and any value on a facility inquiry, is ignored. |
+| `referralCode` | string | no | Also `referral_code`. The live form sends `?ref=` from the page address. Kept on the inquiry and on any application it creates. 1–64 letters, digits, `_` or `-`; anything else is ignored, not rejected. |
 
 Unknown fields are ignored. The agency organization is resolved on the server from
 `INTAKE_ORGANIZATION_SLUG`; any organization or role values a client sends are ignored.
@@ -57,6 +59,14 @@ All of the following happen in one database transaction (`public.submit_inquiry`
 2. A `submitted` row in `inquiry_events`.
 3. A `notification_outbox` row for the visitor confirmation (`clinician_inquiry_confirmation` or `facility_inquiry_confirmation`).
 4. A second outbox row, `staff_new_inquiry_alert`, sent to the organization's `intake_notification_email` when that is set.
+
+When a clinician inquiry carries the `jobId` of one of the agency's jobs that the public has seen (published, and advertised: a direct contract, or an active partner that allows advertising):
+
+- The inquiry's `job_id` is set, so ward shows "Asked about" with a link to the job.
+- If the job is open, a `website` application on it is created too, linked to the inquiry (`inquiry_id`) with the inquiry's consent and referral code. The visitor then gets `job_application_confirmation` and staff get `staff_new_application_alert` in place of the two inquiry emails, so each submission sends one confirmation. If they had already applied to that job, nothing new is created and the inquiry emails are sent.
+- If the job is closed or on hold, the inquiry only remembers the job.
+
+Drafts, other agencies' jobs and partner jobs that aren't advertised are ignored, so the inquiry stays a general one. The reply to the site is unchanged; `submit_inquiry` itself also returns `application_id` when there is one. A different job counts toward the duplicate check, so inquiries about two jobs are two inquiries.
 
 ## `POST /functions/v1/process-outbox`
 

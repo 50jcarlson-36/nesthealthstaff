@@ -74,6 +74,13 @@ check "apply from disallowed origin" 403 "$(apply "https://evil.example" "$appli
 check "apply with form encoding" 415 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X POST "$BASE/apply" -H "Origin: $ORIGIN" -d 'name=x')"
 check "apply GET not allowed" 405 "$(curl -s -m 120 -o /dev/null -w '%{http_code}' "$BASE/apply")"
 
+# The website's inquiry form, sent from a job page through a referral link.
+from_job="${nurse/smoke-$RUN@/smoke-job-$RUN@}"
+from_job="${from_job/\"consent\":true/\"consent\":true,\"jobId\":\"$OPEN_JOB\",\"referralCode\":\"SMOKE$RUN\"}"
+check "inquiry from a job page" 201 "$(post "$ORIGIN" "$from_job")"
+check "inquiry response body" '{"ok":true,"reference":"<uuid>"}' "$(sed -E 's/"[0-9a-f]{8}-[0-9a-f-]{27}"/"<uuid>"/' /tmp/nhs-smoke-body)"
+check "inquiry became an application" "\"SMOKE$RUN\"" "$(curl -s -m 120 "$API_URL/rest/v1/job_applications?job_id=eq.$OPEN_JOB&email=eq.smoke-job-$RUN@example.com&select=referral_code" -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" | sed -E 's/.*"referral_code":("[^"]*").*/\1/')"
+
 # --- staff-invite --------------------------------------------------------------
 # Only ward may call it, and only with a session; the signed-in cases are in
 # tests/integration/staff.test.ts.

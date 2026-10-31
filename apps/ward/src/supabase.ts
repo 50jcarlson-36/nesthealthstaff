@@ -46,6 +46,9 @@ export type Inquiry = InquirySummary & {
   consent_given_at: string;
   consent_version: string;
   follow_up_on: string | null;
+  job_id: string | null;
+  job: { title: string } | null;
+  referral_code: string | null;
   updated_at: string;
 };
 
@@ -148,6 +151,7 @@ export type JobApplication = {
   job_id: string;
   inquiry_id: string | null;
   source: "website" | "recruiter" | "portal";
+  referral_code: string | null;
   stage: ApplicationStage;
   stage_reason: string | null;
   full_name: string;

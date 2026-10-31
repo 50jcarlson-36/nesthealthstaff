@@ -642,6 +642,7 @@ function ApplicationCard({
             {a.phone && <> · <a href={`tel:${a.phone}`}>{a.phone}</a></>}
             {" · "}
             {a.source === "website" ? "Applied on the website" : a.source === "portal" ? "Applied through the portal" : "Added by a recruiter"} {formatDate(a.created_at)}
+            {a.referral_code && <> · Referral code {a.referral_code}</>}
           </p>
           {a.stage_reason && <p className="muted">Reason: {a.stage_reason}</p>}
         </div>

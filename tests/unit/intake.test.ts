@@ -35,8 +35,25 @@ describe("parseIntake", () => {
         desired_end_date: null,
         staffing_requirements: null,
         consent_version: CONSENT_VERSION,
+        job_id: null,
+        referral_code: null,
       },
     });
+  });
+
+  it("keeps the job and referral code the site sends, and drops ones in the wrong shape", () => {
+    const job = "6F1C0E2A-3B4D-4E5F-8A9B-0C1D2E3F4A5B";
+    const ok = parseIntake({ ...nurseForm, jobId: job, referralCode: " FRIEND_42 " });
+    expect(ok.kind === "valid" && [ok.inquiry.job_id, ok.inquiry.referral_code]).toEqual([job.toLowerCase(), "FRIEND_42"]);
+
+    for (const [jobId, referralCode] of [["travel-rn-austin", "a b"], [42, "x".repeat(65)], [null, "<script>"]]) {
+      const r = parseIntake({ ...nurseForm, jobId, referralCode });
+      expect(r.kind === "valid" && [r.inquiry.job_id, r.inquiry.referral_code]).toEqual([null, null]);
+    }
+
+    // Facilities don't apply to jobs; their referral code is still kept.
+    const facility = parseIntake({ ...nurseForm, type: "employer", organization: "Example Hospital", jobId: job, referralCode: "HOSP1" });
+    expect(facility.kind === "valid" && [facility.inquiry.job_id, facility.inquiry.referral_code]).toEqual([null, "HOSP1"]);
   });
 
   it("maps employer submissions to facility inquiries and requires an organization", () => {

@@ -93,5 +93,5 @@ export async function submit(slug: string, inquiry: Record<string, unknown>, key
     p_client_hash: clientHash,
   });
   if (error) throw error;
-  return data as { status: "created" | "duplicate" | "rate_limited"; inquiry_id?: string };
+  return data as { status: "created" | "duplicate" | "rate_limited"; inquiry_id?: string; application_id?: string };
 }
